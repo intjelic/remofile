@@ -1,6 +1,6 @@
 # Remofile
 
-![](https://img.shields.io/pypi/v/remofile.svg) ![](https://img.shields.io/pypi/l/remofile.svg) ![](https://img.shields.io/pypi/pyversions/remofile.svg)
+![](https://img.shields.io/pypi/v/remofile.svg) ![](https://img.shields.io/pypi/l/remofile.svg) ![](https://img.shields.io/pypi/pyversions/remofile.svg) [![Documentation Status](https://readthedocs.org/projects/remofile/badge/?version=latest)](http://remofile.readthedocs.io/en/latest/?badge=latest)
 
 Remofile is a **protocol**, a **Python library** and a **command-line interface** to transfer files back and forth from/to a remote server. It's a **quick** and **easy-to-use** alternative to FTP and other transfer files tools.
 

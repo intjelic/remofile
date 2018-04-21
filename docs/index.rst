@@ -30,6 +30,9 @@ Remofile : Alternative to FTP
 .. image:: https://img.shields.io/pypi/pyversions/remofile.svg
     :target: https://pypi.python.org/pypi/remofile
 
+.. image:: https://readthedocs.org/projects/remofile/badge/?version=latest
+    :target: http://remofile.readthedocs.io/en/latest/?badge=latest
+
 Remofile is a **protocol**, a **Python library** and a **command-line
 interface** to transfer files back and forth from/to a remote server.
 It's a **quick** and **easy-to-use** alternative to FTP and other
