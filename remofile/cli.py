@@ -1,4 +1,4 @@
-# Remofile - Embeddable alternative to FTP
+# Remofile - Quick and easy-to-use alternative to FTP
 #
 # This file is distributed under the MIT License. See the LICENSE file
 # in the root of this project for more information.
@@ -9,8 +9,8 @@ import os
 import sys
 from pathlib import PurePosixPath, PosixPath
 import click
-from remofile.client import FileClient
-from remofile.server import FileServer
+from remofile.client import Client
+from remofile.server import Server
 from remofile.server import FILE_SIZE_LIMIT, MINIMUM_CHUNK_SIZE, MAXIMUM_CHUNK_SIZE
 from remofile.token import generate_token
 from remofile.daemon import Daemon
@@ -70,6 +70,24 @@ def get_info_from_environment():
 
     return hostname, port, token
 
+def create_client():
+    # read environment variable for server information and print
+    # misconfigured environment error if some variables are missing
+    hostname, port, token = get_info_from_environment()
+
+    if not hostname or not port or not token:
+        print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
+        exit(1)
+
+    return Client(hostname, port, token)
+
+def adjust_timeout(timeout):
+    # if not specified, adjust timeout to the default global timeout
+    if not timeout:
+        timeout = DEFAULT_TIMEOUT_VALUE
+
+    return timeout
+
 def display_generated_token(token):
     print(GENERATED_TOKEN_MESSAGE.format(token))
 
@@ -108,7 +126,7 @@ def list_files(directory, timeout):
     #if not os.path.isabs(directory):
         #directory = os.path.join('/', directory)
 
-    #client = FileClient(hostname, port, token)
+    #client = Client(hostname, port, token)
 
     #try:
         #files_list = client.list_files(directory, timeout)
@@ -148,7 +166,7 @@ def create_file(name, directory, timeout):
 
     from remofile.client import InvalidFileName
 
-    client = FileClient(hostname, port, token)
+    client = Client(hostname, port, token)
 
     try:
         client.create_file(name, directory, timeout)
@@ -191,7 +209,7 @@ def make_directory(name, directory, timeout):
 
     from remofile.client import InvalidFileName
 
-    client = FileClient(hostname, port, token)
+    client = Client(hostname, port, token)
 
     try:
         client.make_directory(name, directory, timeout)
@@ -206,141 +224,82 @@ def make_directory(name, directory, timeout):
 
     print("file created")
 
-
-def upload_directory(client, source_directory, destination_directory, current_directory, chunk_size, process_chunk, timeout):
-    # at this point, we assume that the destination directory where we
-    # have to upload files doesn't exist
-
-    print("----")
-    directory_name = current_directory.name
-    directory_destination = destination_directory / current_directory.parent
-    #print("make directory with name '{0}' at '{1}'".format(directory_name, directory_destination))
-    client.make_directory(directory_name, directory_destination, timeout)
-
-    for current_file in (source_directory / current_directory).iterdir():
-        #print('current file is ' + str(current_file))
-
-        if current_file.is_file():
-            upload_source = source_directory / current_directory / current_file
-            upload_destination = destination_directory / current_directory
-            #print("upload file with source '{0}' to destination '{1}'".format(upload_source, upload_destination))
-            client.upload_file(upload_source, upload_destination, chunk_size, process_chunk, timeout)
-        elif current_file.is_dir():
-            upload_directory(client, source_directory, destination_directory, current_directory / current_file.name, chunk_size, process_chunk, timeout)
-        else:
-            print("symlink aren't supproted yet; skipping : {0}".format(str(current_file)))
-
-@cli.command('upload')
-@click.argument('source')
-@click.argument('destination')
 #@click.option('--update', '-u')
-##-u, --update
-      #copy only when the SOURCE file is newer than the destination file or when the destination file is missing
+##-u, --update copy only when the SOURCE file is newer than the destination file or when the destination file is missing
 #@click.option('--resume')
+#@click.option('--min-size', help="don't transfer any file smaller than SIZE")
+#@click.option('--max-size', help="don't transfer any file larger than SIZE")
+#--list-only             list the files instead of copying them
+#--exclude=PATTERN       exclude files matching PATTERN
+#--exclude-from=FILE     read exclude patterns from FILE
+#--include=PATTERN       don't exclude files matching PATTERN
+#--include-from=FILE     read include patterns from FILE
+#@click.option('--out-format', help="output updates using the specified FORMAT")
+#@click.option('--log-file', help="log what we're doing to the specified FILE")
+#@click.option('--log-file-format', help="log updates using the specified FMT")
+@cli.command('upload')
+@click.argument('source', nargs=-1)
+@click.argument('destination', nargs=1)
 @click.option('--recursive', '-r', is_flag=True)
 @click.option('--progress', '-p')
-@click.option('--timeout', '-t', type=click.INT)
 @click.option('--chunk-size', default=512, type=click.INT)
-def upload_file(source, destination, recursive, progress, timeout, chunk_size):
+@click.option('--timeout', '-t', type=click.INT)
+def upload_files(source, destination, recursive, progress, chunk_size, timeout):
+    #min_size, max_size, out_format, log_file, log_file_format):
     """ Upload files to the remote directory.
 
-    - source is either a file or a directory
-    - if source is a directory, ensure --progress is on, or abort the operation
+    This is a client-related command that uploads files to the remote
+    directory. The source must be files or directories on the local
+    filesystem and the destination must be an **existing** directory in
+    the remote directory. Unlike the source, the destination must be an
+    absolute directory. If source refers to one or more directories, the
+    recursiv flag must be set otherwise they'll be skipped.
 
-    - the destination must be a directory
+    The progress flag allows to display the progression of the transfer
+    which is useful for large files.
 
-    - source must not conflict with any existing file in the destiantion
-    repository
-
-    - timeout corresponds to time allowed between chunks
-
-    Long description.
+    Document chunk_size.
+    Document timeout.
     """
 
-    # read environment variable for server information and print
-    # misconfigured environment error if some variables are missing
-    hostname, port, token = get_info_from_environment()
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
-    if not hostname or not port or not token:
-        print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
-        exit(1)
+    # ensure we work with pure posix paths
+    source = (PosixPath(path) for path in source)
+    destination = PosixPath(destination)
 
-    # if not specified, adjust timeout to the default global timeout
-    if not timeout:
-        timeout = DEFAULT_TIMEOUT_VALUE
-
-    # foobar/barfoo
-    client = FileClient(hostname, port, token)
-
-    # check if source is a file or a directory, and if source is a
-    # directory abort the operation if the --recursive flag is not
-    # enabled
-    source = PosixPath(source)
-    is_directory = source.is_dir()
-
-    if is_directory and not recursive:
-        print("-r not specified; omitting directory 'foobar'")
-        exit(1)
-
-    # check if destination is an existing directory (root directory
-    # always is valid directory)
-    destination = PurePosixPath(destination)
-
-    try:
-        files_list = client.list_files(destination.parent, timeout)
-        files_list = dict((name, (is_directory, size, last_accessed)) for name, is_directory, size, last_accessed in files_list)
-
-    except NotADirectoryError:
-        print('destination is not a directory; abort')
-        exit(1)
-
-    if str(destination) != destination.root:
-
-        if destination.name not in files_list:
-            print('destination is not an existing directory; abort')
-            exit(1)
-
-        if files_list[destination.name][0] == False:
-            print('destination is existing but it\' not a directory; abort')
-            exit(1)
-
-    # check if upload file conflicts with an existing file (or directory)
-    if source.name in files_list:
-        print('an existing file conflicts with the upload file')
-        exit(1)
-
-    # do the upload (do it recursively if -r flag is enabled)
-    #def process_chunk(chunk_data, remaining_bytes, file_size):
-        #return True
-
+    # foobar
     def process_chunk(chunk_data, remaining_bytes, file_size):
         # if progress flag was passed, show progress status
         #if progress:
-        name = source.name
+        #name = source.name
+
         progress = (file_size - remaining_bytes) / file_size * 100
 
-        sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, name))
+        #sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, name))
+        sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, process_chunk.name))
         sys.stdout.flush()
+
+        if remaining_bytes <= chunk_size:
+            sys.stdout.write('\n')
 
         return True
 
-    if not recursive:
-        client.upload_file(source, destination, chunk_size, process_chunk, timeout)
-    else:
-        print("initiating recursive download with the following variables")
-        print(PosixPath(source.parent))
-        print(PurePosixPath(source.name))
-        print(PurePosixPath(destination))
-        upload_directory(client, PosixPath(source.parent), PurePosixPath(destination), PurePosixPath(source.name), chunk_size, process_chunk, timeout)
-
-    # TODO: traverse source directory
+    for path in source:
+        if path.is_file():
+            client.upload_file(path, destination, None, 512, process_chunk, timeout)
+        elif path.is_dir():
+            client.upload_directory(path, destination, None, 512, process_chunk, timeout)
+        else:
+            raise NotImplementedError
 
 @cli.command('download')
 @click.argument('source')
 @click.argument('destination')
 @click.option('--timeout', '-t', type=click.INT)
 @click.option('--chunk-size', default=512, type=click.INT)
-def download_file(source, destination, timeout, chunk_size):
+def download_files(source, destination, timeout, chunk_size):
     """ Download files from the remote directory.
 
     - source is either a file or a directory
@@ -385,8 +344,8 @@ def download_file(source, destination, timeout, chunk_size):
 
         #return True
 
-    #client = FileClient(hostname, port, token)
-    #client.download_file(source, destination, chunk_size, process_chunk)
+    #client = Client(hostname, port, token)
+    #client.download_files(source, destination, chunk_size, process_chunk)
 
 
 @cli.command('remove')
@@ -426,7 +385,7 @@ def run_server(directory, port, token, file_size_limit, min_chunk_size, max_chun
         display_generated_token(token)
 
     try:
-        server = FileServer(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
+        server = Server(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
     except NotADirectoryError:
         print(INVALID_ROOT_DIRECTORY_MESSAGE)
         exit(1)
@@ -461,7 +420,7 @@ def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_siz
         display_generated_token(token)
 
     try:
-        server = FileServer(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
+        server = Server(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
     except NotADirectoryError:
         print(INVALID_ROOT_DIRECTORY_MESSAGE)
         exit(1)
@@ -489,10 +448,10 @@ def stop_server(pidfile):
     Daemon.stop(pidfile)
 
 cli.add_command(list_files)
-cli.add_command(upload_file)
-cli.add_command(download_file)
 cli.add_command(create_file)
 cli.add_command(make_directory)
+cli.add_command(upload_files)
+cli.add_command(download_files)
 cli.add_command(remove_file)
 
 cli.add_command(run_server)

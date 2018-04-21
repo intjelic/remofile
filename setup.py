@@ -1,20 +1,21 @@
 from setuptools import setup
+from codecs import open
+from os import path
 
-long_description = """Remofile is a protocol, a Python library and a \
-command-line interface to transfer files back and forth from/to a \
-remote server. It's an embeddable and easy-to-use alternative to FTP \
-and other transfer files tools.
-"""
+here = path.abspath(path.dirname(__file__))
+
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='remofile',
-    version='1.0.0.dev1',
+    version='1.0.0.dev2',
     packages=[
         'remofile'
     ],
-    description='Easy-to-use and embeddable alternative to FTP',
+    description='Quick and easy-to-use alternative to FTP',
     long_description=long_description,
-    long_description_content_type='text/plain',
+    long_description_content_type='text/markdown',
     url='https://www.sonkun-dev.net/project/remofile',
     author='Jonathan De Wachter',
     author_email='dewachter.jonathan@gmail.com',
@@ -35,8 +36,8 @@ setup(
     keywords='remofile file transfer ftp alternative quick embeddable secure protocol',
     project_urls={
         'Documentation': 'http://remofile.readthedocs.io',
-        'Source': 'https://github.com/sonkun/remofile/',
-        'Tracker': 'https://github.com/sonkun/remofile/issues',
+        'Source'       : 'https://github.com/sonkun/remofile/',
+        'Tracker'      : 'https://github.com/sonkun/remofile/issues',
     },
     install_requires=[
         'Click',

@@ -1,4 +1,4 @@
-# Remofile - Embeddable alternative to FTP
+# Remofile - Quick and easy-to-use alternative to FTP
 #
 # This file is distributed under the MIT License. See the LICENSE file
 # in the root of this project for more information.
@@ -35,11 +35,11 @@ def normalize_directory(directory):
 
     return directory.relative_to(directory.root)
 
-class FileServer:
+class Server:
     """ Remofile server.
 
-    This class implements a Remofile server as specified by the
-    protocol. It handles one client at a time.
+    This class implements the server side of Remofile that behaves
+    according to the protocol.
 
         - start()/stop() to start threaded mode
         - run() to start no thread mode
@@ -51,18 +51,30 @@ class FileServer:
     Raise ValueError if file size limit is incorrect
     """
 
-    def __init__(self,
-        root_directory,
-        token,
+    def __init__(self, root_directory, token,
         file_size_limit = FILE_SIZE_LIMIT,
         min_chunk_size  = MINIMUM_CHUNK_SIZE,
-        max_chunk_size  = MAXIMUM_CHUNK_SIZE
-        ):
+        max_chunk_size  = MAXIMUM_CHUNK_SIZE):
+        """ Construct a :py:class:`Server` instance.
 
-        self.root_directory = PosixPath(os.getcwd(), root_directory)
+        Long description.
 
-        if not self.root_directory.exists() or self.root_directory.is_file():
+        :param root_directory: foobar.
+        :param token: foobar.
+        :param file_size_limit: foobar.
+        :param min_chunk_size: foobar.
+        :param max_chunk_size: foobar.
+        """
+
+        root_directory = PosixPath(root_directory)
+
+        if not root_directory.is_absolute():
+            root_directory = PosixPath(os.getcwd(), root_directory)
+
+        if not root_directory.exists() or root_directory.is_file():
             raise NotADirectoryError("The root directory must be an existing directory")
+
+        self.root_directory = root_directory
 
         self.token = bytes(token, 'utf-8')
 
@@ -204,6 +216,14 @@ class FileServer:
         self.state = ServerState.IDLE
 
     def run(self, hostname, port):
+        """ Brief description.
+
+        Long description.
+
+        :param hostname: foobar.
+        :param port: foobar.
+        """
+
         # initialize sockets (router, dealer and socket)
         context = zmq.Context.instance()
 
@@ -265,7 +285,7 @@ class FileServer:
         directory = normalize_directory(directory)
 
         # combine the list directory with the root directory
-        directory = PosixPath(self.root_directory) / directory
+        directory = self.root_directory / directory
 
         # if the directory doesn't refer to an actual directory, send
         # not a directory refused resonse
@@ -277,17 +297,15 @@ class FileServer:
 
         # build the list of files of the given directory, with files
         # properties
-        files_list = []
+        files_list = {}
 
         for _file in directory.iterdir():
             name          = _file.name
             is_directory  = _file.is_dir()
-            size          = _file.stat().st_size
+            size          = _file.stat().st_size if not is_directory else 0
             last_accessed = _file.stat().st_atime
 
-            files_list.append((name, is_directory, size, last_accessed))
-
-        files_list = tuple(files_list)
+            files_list[name] = (is_directory, size, last_accessed)
 
         # send list file accepted response with list of files
         response = make_files_listed_response(files_list)
@@ -339,7 +357,7 @@ class FileServer:
         directory = normalize_directory(directory)
 
         # combine the destination directory with the root directory
-        directory = PosixPath(self.root_directory) / directory
+        directory = self.root_directory / directory
 
         # return NOT_A_DIRECTORY refused response if the destination
         # isn't an actual directory
@@ -416,7 +434,7 @@ class FileServer:
         directory = normalize_directory(directory)
 
         # combine the destination directory with the root directory
-        directory = PosixPath(self.root_directory) / directory
+        directory = self.root_directory / directory
 
         # return NOT_A_DIRECTORY refused response if the destination
         # isn't an actual directory
@@ -615,7 +633,7 @@ class FileServer:
         directory = normalize_directory(directory)
 
         # combine the destination directory with the root directory
-        directory = PosixPath(self.root_directory) / directory
+        directory = self.root_directory / directory
 
         if not directory.exists() or directory.is_file():
             response = make_not_a_directory_response()
@@ -704,6 +722,7 @@ class FileServer:
         if self.remaining_bytes > 0:
             response = make_chunk_sent_response(chunk_data)
         else:
+            self.terminate_download_file()
             response = make_transfer_completed_response(chunk_data)
 
         self.socket.send_pyobj(response)
@@ -808,7 +827,7 @@ class FileServer:
         directory = normalize_directory(directory)
 
         # combine the source directory with the root directory
-        directory = PosixPath(self.root_directory) / directory
+        directory = self.root_directory / directory
 
         # send NOT_A_DIRECTORY
         if not directory.exists() or not directory.is_dir():
@@ -930,4 +949,9 @@ class FileServer:
             self.process_dealer()
 
     def terminate(self):
+        """ Brief description.
+
+        Long description.
+        """
+
         self.is_running = False
