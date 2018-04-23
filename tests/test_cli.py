@@ -5,7 +5,20 @@
 #
 # Written by Jonathan De Wachter <dewachter.jonathan@gmail.com>, March 2018
 
+import os
+import time
+import threading
+from pathlib import PosixPath
+from tempfile import TemporaryDirectory
 import unittest
+from click.testing import CliRunner
+from remofile.server import Server
+from remofile.cli import *
+from remofile.token import generate_token
+
+HOSTNAME = '127.0.0.1'
+PORT     = 6768
+TOKEN    = generate_token()
 
 class TestCLI(unittest.TestCase):
     """ Test the command-line interface.
@@ -14,9 +27,283 @@ class TestCLI(unittest.TestCase):
     """
 
     def setUp(self):
-        pass
+        # create local working directory
+        self.local_directory = TemporaryDirectory()
+        self.local_directory_path = PosixPath(self.local_directory.name)
+
+        # create remote working directory
+        self.remote_directory = TemporaryDirectory()
+        self.remote_directory_path = PosixPath(self.remote_directory.name)
+
+        # start the server in an external thread
+        self.server = Server(self.remote_directory_path, TOKEN)
+
+        def server_loop(server):
+            server.run(HOSTNAME, PORT)
+
+        self.server_thread = threading.Thread(target=server_loop, args=(self.server,))
+        self.server_thread.start()
+
+        # change working direcory to local working directory
+        self.last_working_directory = os.getcwd()
+        os.chdir(self.local_directory_path)
 
     def tearDown(self):
+
+        # restore current working directory
+        os.chdir(self.last_working_directory)
+
+        # terminate the server and wait until it terminates
+        self.server.terminate()
+        self.server_thread.join()
+
+        # delete all testing contents in both local and remote working
+        # directory
+        self.local_directory.cleanup()
+        self.remote_directory.cleanup()
+
+    def _create_temporary_file(self, root, directory, name, size):
+        """ Create a temporary file in the 'remote' directory.
+
+        This function creates a temporary file with a given name in a
+        given directory located in the temporary workinng 'remote'
+        directory. It's filled with a given amount of random data.
+
+        It returns a posix path of the created file and the generated
+        data.
+        """
+
+        assert os.path.isabs(directory) == True
+        directory = directory[1:]
+
+        file_data = os.urandom(size)
+
+        temporary_file_path = root / directory / name
+        temporary_file = temporary_file_path.open('wb')
+        temporary_file.write(file_data)
+        temporary_file.close()
+
+        return temporary_file_path, file_data
+
+    def _create_temporary_directory(self, root, directory, name):
+        """ Create a temporary directory in the 'remote' directory.
+
+        This function creates a temporary directory with a given name
+        in a given directory located in the temporary workinng 'remote'
+        directory.
+
+        It returns a posix path of the created directory.
+        """
+
+        assert os.path.isabs(directory) == True
+        directory = directory[1:]
+
+        temporary_directory_path = root / directory / name
+        temporary_directory_path.mkdir(exist_ok=False)
+
+        return temporary_directory_path
+
+    def create_local_file(self, directory, name, size):
+        return self._create_temporary_file(self.local_directory_path, directory, name, size)
+
+    def create_local_directory(self, directory, name):
+        return self._create_temporary_directory(self.local_directory_path, directory, name)
+
+    def create_remote_file(self, directory, name, size):
+        return self._create_temporary_file(self.remote_directory_path, directory, name, size)
+
+    def create_remote_directory(self, directory, name):
+        return self._create_temporary_directory(self.remote_directory_path, directory, name)
+
+    def test_list_command(self):
+        """ Test the upload command.
+
+        Remote working directory.
+
+            foo/
+                bar.bin
+                qaz/xyz.img
+            tox.iso
+
+        Test invoking the following set of commands.
+
+            rmf list
+            rmf list /
+            rmf list / -a
+            rmf list / -r
+            rmf list / -a -r
+            rmf list /foo
+            rmf list /foo -a
+            rmf list /foo -r
+            rmf list /foo -a -r
+
+        Long description.
+        """
+
+        # create remote working tree of files
+        self.create_remote_directory('/', 'foo')
+        self.create_remote_file('/foo', 'bar.bin', 1052)
+        self.create_remote_directory('/foo', 'qaz')
+        self.create_remote_file('/foo/qaz', 'xyz.img', 312)
+        self.create_remote_file('/', 'tox.iso', 860)
+
+        # test with incorrectly configured environment
+        runner = CliRunner()
+        result = runner.invoke(list_files, [])
+        self.assertIn('Configure your environment and try again.', result.output)
+        self.assertEqual(result.exit_code, 1)
+
+        time.sleep(0.05)
+
+        # configure the environment
+        os.environ["REMOFILE_HOSTNAME"] = 'localhost'
+        os.environ["REMOFILE_PORT"]     = str(PORT)
+        os.environ["REMOFILE_TOKEN"]    = TOKEN
+
+        # test invoking command with minimal parameter
+        runner = CliRunner()
+        result = runner.invoke(list_files, [])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("foo",        result.output)
+        self.assertIn("tox.iso",    result.output)
+        self.assertNotIn("bar.bin", result.output)
+        self.assertNotIn("qaz",     result.output)
+        self.assertNotIn("xyz.img", result.output)
+
+        default_exit_code = result.exit_code
+        default_output    = result.output
+
+        time.sleep(0.05)
+
+        # test invoking command with default parameters
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/'])
+
+        self.assertEqual(result.exit_code, default_exit_code)
+        self.assertEqual(result.output, default_output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list root with -a parameter
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/', '-a'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("[D]",        result.output)
+        self.assertIn("foo",        result.output)
+        self.assertIn("[F]",        result.output)
+        self.assertIn("tox.iso",    result.output)
+        self.assertNotIn("bar.bin", result.output)
+        self.assertNotIn("qaz",     result.output)
+        self.assertNotIn("xyz.img", result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list root with -r parameter
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/', '-r'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("foo",             result.output)
+        self.assertIn("tox.iso",         result.output)
+        self.assertIn("foo/bar.bin",     result.output)
+        self.assertIn("foo/qaz",         result.output)
+        self.assertIn("foo/qaz/xyz.img", result.output)
+        self.assertNotIn("[F]",          result.output)
+        self.assertNotIn("[D]",          result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list root with -a and -r parameters
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/', '-a', '-r'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("foo",             result.output)
+        self.assertIn("tox.iso",         result.output)
+        self.assertIn("foo/bar.bin",     result.output)
+        self.assertIn("foo/qaz",         result.output)
+        self.assertIn("foo/qaz/xyz.img", result.output)
+        self.assertIn("[F]",             result.output)
+        self.assertIn("[D]",             result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list a subdirectory
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/foo'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("foo",         result.output)
+        self.assertNotIn("tox.iso",     result.output)
+        self.assertIn("bar.bin",        result.output)
+        self.assertIn("qaz",            result.output)
+        self.assertNotIn("qaz/xyz.img", result.output)
+        self.assertNotIn("[F]",         result.output)
+        self.assertNotIn("[D]",         result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list a subdirectory with -a parameter
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/foo', '-a'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("foo",         result.output)
+        self.assertNotIn("tox.iso",     result.output)
+        self.assertIn("bar.bin",        result.output)
+        self.assertIn("qaz",            result.output)
+        self.assertNotIn("qaz/xyz.img", result.output)
+        self.assertIn("[F]",            result.output)
+        self.assertIn("[D]",            result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list a subdirectory with -r parameter
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/foo', '-r'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("foo",      result.output)
+        self.assertNotIn("tox.iso",  result.output)
+        self.assertIn("bar.bin",     result.output)
+        self.assertIn("qaz",         result.output)
+        self.assertIn("qaz/xyz.img", result.output)
+        self.assertNotIn("[F]",      result.output)
+        self.assertNotIn("[D]",      result.output)
+
+        time.sleep(0.05)
+
+        # test invoking command to list a subdirectory with -a and -r parameters
+        runner = CliRunner()
+        result = runner.invoke(list_files, ['/foo', '-a', '-r'])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("foo",      result.output)
+        self.assertNotIn("tox.iso",  result.output)
+        self.assertIn("bar.bin",     result.output)
+        self.assertIn("qaz",         result.output)
+        self.assertIn("qaz/xyz.img", result.output)
+        self.assertIn("[F]",         result.output)
+        self.assertIn("[D]",         result.output)
+
+        time.sleep(0.05)
+
+    def test_file_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_folder_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
         pass
 
     def test_upload_command(self):
@@ -45,6 +332,58 @@ class TestCLI(unittest.TestCase):
         #  - foo
         #  - bar
         #
+        pass
 
-    def test_bar(self):
+    def test_download_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_remove_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+    def test_remove_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_synchronize_local_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_synchronize_remote_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_generate_token_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
+        pass
+
+    def test_generate_keys_command(self):
+        """ Test the upload command.
+
+        Long description.
+        """
+
         pass

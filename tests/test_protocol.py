@@ -6,8 +6,8 @@
 # Written by Jonathan De Wachter <dewachter.jonathan@gmail.com>, March 2018
 
 import os
-from pathlib import PosixPath
 import threading
+from pathlib import PosixPath
 from tempfile import TemporaryDirectory
 import unittest
 import zmq

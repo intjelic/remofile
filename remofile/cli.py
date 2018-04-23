@@ -7,11 +7,13 @@
 
 import os
 import sys
+from datetime import datetime
 from pathlib import PurePosixPath, PosixPath
 import click
-from remofile.client import Client
 from remofile.server import Server
 from remofile.server import FILE_SIZE_LIMIT, MINIMUM_CHUNK_SIZE, MAXIMUM_CHUNK_SIZE
+from remofile.client import Client
+from remofile.exceptions import *
 from remofile.token import generate_token
 from remofile.daemon import Daemon
 
@@ -29,7 +31,7 @@ Configure your environment and try again.
 """
 
 TIMEOUT_ERROR_MESSAGE = """Timeout error; couldn't access the server \
-in the requested time.
+within the expected time.
 
 Check if the server is accessible or try to increase the timeout value \
 for slow connection.
@@ -96,133 +98,193 @@ def cli():
     pass
 
 @cli.command('list')
-@click.argument('directory')
+@click.argument('directory', default='/')
+@click.option('--all', '-a', 'with_metadata', is_flag=True)
+@click.option('--recursive', '-r', is_flag=True)
 @click.option('--timeout', '-t', type=click.INT)
-def list_files(directory, timeout):
-    """ Download a file.
+def list_files(directory, with_metadata, recursive, timeout):
+    """ List files in the remote directory.
 
-    - support -a --all flag
-    - support -l --list flag, later
-    - support regex
-    - support absolute path only
+    This is a client-related command that lists files of a given
+    directory located in the remote directory. This command is akin to
+    the POSIX **ls** command found in Unix-like OSes.
 
-    Long description.
+    It takes only one **optional** parameter which is the remote
+    directory to list files for, and must be an absolute path of an
+    **existing** directory. By default, it lists the root directory.
+
+    By default, it only displays file names and doesn't list the
+    directory recursively. If the **-l** flag is set, it also lists the
+    file metadata (file or directory indicator, file size and last
+    modification time), and if the **-r** flag is set, the
+    sub-directories are listed as well.
+
+    Additionally, the **--timeout** flag allows you to adjust the number
+    of milliseconds to wait before giving up on the server response.
     """
-    print(directory)
 
-    # read environment variable for server information and print
-    ## misconfigured environment error if some variables are missing
-    #hostname, port, token = get_info_from_environment()
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
-    #if not hostname or not port or not token:
-        #print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
-        #exit(1)
+    def display_directory_files(root, directory, with_metadata, recursive):
+        try:
+            files = client.list_files(os.path.join(root, directory), timeout)
+        except ValueError:
+            print("Unable to list files for '{0}' directory; it must be an absolute path.".format(directory))
+            exit(1)
+        except NotADirectoryError:
+            print("Cannot access '{0}' directory; no such directory exists.".format(directory))
+            exit(1)
+        except TimeoutError:
+            print(TIMEOUT_ERROR_MESSAGE)
+            exit(1)
 
-    ## if not specified, adjust timeout to the default global timeout
-    #if not timeout:
-        #timeout = DEFAULT_TIMEOUT_VALUE
+        subdirectories = []
 
-    ## normalize list files directory to be an absolute path
-    #if not os.path.isabs(directory):
-        #directory = os.path.join('/', directory)
+        if not with_metadata:
+            for name, (is_directory, _, _) in files.items():
+                print(os.path.join(directory, name))
 
-    #client = Client(hostname, port, token)
+                if is_directory and recursive:
+                    subdirectories.append(os.path.join(directory, name))
+        else:
+            # it requires double pass to compute columns width
+            file_size_column_width = 0
+            file_time_column_width = 0
 
-    #try:
-        #files_list = client.list_files(directory, timeout)
-    #except TimeoutError:
-        #print(TIMEOUT_ERROR_MESSAGE)
-    #except NotADirectoryError:
-        #print("No such file or directory; cannot access '{0}'".format(directory))
-    #else:
+            file_lines = []
 
-        #print(files_list)
+            for name, (is_directory, file_size, file_time) in files.items():
+                file_time = datetime.fromtimestamp(file_time)
+                file_time_string = file_time.strftime('%Y-%m-%d %H:%M:%S')
+
+                if not is_directory:
+                    file_lines.append((os.path.join(directory, name), '[F]', str(file_size), file_time_string))
+                else:
+                    file_lines.append((os.path.join(directory, name), '[D]', str(file_size), file_time_string))
+
+                file_size_column_width = max(file_size_column_width, len(str(file_size)))
+                file_time_column_width = max(file_time_column_width, len(file_time_string))
+
+                if is_directory and recursive:
+                    subdirectories.append(os.path.join(directory, name))
+
+            # add padding to column width
+            file_size_column_width += 2
+
+            for name, file_type, file_size, file_time in file_lines:
+                print('{0} {1} {2} {3}'.format(file_type, file_size.ljust(file_size_column_width), file_time.ljust(file_time_column_width), name))
+
+        for subdirectory in subdirectories:
+            display_directory_files(root, subdirectory, with_metadata, recursive)
+
+    display_directory_files(directory, '', with_metadata, recursive)
+
+    del client # debug code, for some reason the socket wown't be disconnected
 
 @cli.command('file')
 @click.argument('name')
-@click.argument('directory')
+@click.argument('directory', default='/')
+@click.option('--update', '-u', is_flag=True)
 @click.option('--timeout', '-t', type=click.INT)
-def create_file(name, directory, timeout):
-    """ Download a file.
+def create_file(name, directory, update, timeout):
+    """ Create a file in the remote directory.
 
-    Long description.
+    This is a client-related command that creates an empty file in the
+    a given directory located in the remote directory. This command is
+    akin to the POSIX **touch** command found in Unix-like OSes.
+
+    It takes the name of the file and an optional remote directory (in
+    which to create the file) in parameters. The directory parameter
+    must be an absolute path of an **existing** directory. By default,
+    it creates the file in the root directory.
+
+    If the file already exists in the given directory, the command fails
+    unless the **--update** flag is set. Note that unlike the `touch`
+    command, it doesn't update the file timestamp.
+
+    Additionally, the **--timeout** flag allows you to adjust the number
+    of milliseconds to wait before giving up on the server response.
     """
 
-    # read environment variable for server information and print
-    # misconfigured environment error if some variables are missing
-    hostname, port, token = get_info_from_environment()
-
-    if not hostname or not port or not token:
-        print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
-        exit(1)
-
-    # if not specified, adjust timeout to the default global timeout
-    if not timeout:
-        timeout = DEFAULT_TIMEOUT_VALUE
-
-    # normalize list files directory to be an absolute path
-    if not os.path.isabs(directory):
-        directory = os.path.join('/', directory)
-
-    from remofile.client import InvalidFileName
-
-    client = Client(hostname, port, token)
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
     try:
         client.create_file(name, directory, timeout)
+    except ValueError:
+        print("Unable to create file in '{0}' directory; it must be an absolute path.".format(directory))
+        exit(1)
+    except InvalidFileName:
+        print("Unable to create file with name '{0}'; it must be a valid file name.".format(name))
+        exit(1)
+    except NotADirectoryError:
+        print("Cannot access '{0}' directory; no such directory exists.".format(directory))
+        exit(1)
+    except FileExistsError:
+        if not update:
+            print("Unable to create file with name '{0}'; it's conflicting with an existing file.".format(name))
+            exit(1)
     except TimeoutError:
         print(TIMEOUT_ERROR_MESSAGE)
-    except InvalidFileName:
-        print("Invalid file name")
-    except NotADirectoryError:
-        print("No such file or directory; cannot access '{0}'".format(directory))
-    except FileExistsError:
-        print("File exists error")
-
-    print("file created")
-
-@cli.command('directory')
-@click.argument('name')
-@click.argument('directory')
-@click.option('--timeout', '-t', type=click.INT)
-def make_directory(name, directory, timeout):
-    """ Create a directory in the remote directory.
-
-    Long description.
-    """
-
-    # read environment variable for server information and print
-    # misconfigured environment error if some variables are missing
-    hostname, port, token = get_info_from_environment()
-
-    if not hostname or not port or not token:
-        print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
         exit(1)
 
-    # if not specified, adjust timeout to the default global timeout
-    if not timeout:
-        timeout = DEFAULT_TIMEOUT_VALUE
+    if directory == '/':
+        print("File '{0}' successfuly created in root directory.".format(name))
+    else:
+        print("File '{0}' successfuly created in '{1}' directory.".format(name, directory))
 
-    # normalize list files directory to be an absolute path
-    if not os.path.isabs(directory):
-        directory = os.path.join('/', directory)
+@cli.command('folder')
+@click.argument('name')
+@click.argument('directory', default='/')
+@click.option('--update', '-u', is_flag=True)
+@click.option('--timeout', '-t', type=click.INT)
+def make_directory(name, directory, update, timeout):
+    """ Create a folder in the remote directory.
 
-    from remofile.client import InvalidFileName
+    This is a client-related command that creates an empty folder in the
+    a given directory located in the remote directory. This command is
+    akin to the POSIX **mkdir** command found in Unix-like OSes.
 
-    client = Client(hostname, port, token)
+    It takes the name of the folder and an optional remote directory (in
+    which to create the folder) in parameters. The directory parameter
+    must be an absolute path of an **existing** directory. By default,
+    it creates the folder in the root directory.
+
+    If the folder already exists in the given directory, the command
+    fails unless the **--update** flag is set. Note that it leaves the
+    existing directory unchanged.
+
+    Additionally, the **--timeout** flag allows you to adjust the number
+    of milliseconds to wait before giving up on the server response.
+    """
+
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
     try:
         client.make_directory(name, directory, timeout)
+    except ValueError:
+        print("Unable to create folder in '{0}' directory; it must be an absolute path.".format(directory))
+        exit(1)
+    except InvalidFileName:
+        print("Unable to create folder with name '{0}'; it must be a valid file name.".format(name))
+        exit(1)
+    except NotADirectoryError:
+        print("Cannot access '{0}' directory; no such directory exists.".format(directory))
+        exit(1)
+    except FileExistsError:
+        if not update:
+            print("Unable to create folder with name '{0}'; it's conflicting with an existing file.".format(name))
+            exit(1)
     except TimeoutError:
         print(TIMEOUT_ERROR_MESSAGE)
-    #except InvalidFileName:
-        #print("Invalid file name")
-    except NotADirectoryError:
-        print("No such file or directory; cannot access '{0}'".format(directory))
-    except FileExistsError:
-        print("Directory exists error")
+        exit(1)
 
-    print("file created")
+    if directory == '/':
+        print("Folder '{0}' successfuly created in root directory.".format(name))
+    else:
+        print("Folder '{0}' successfuly created in '{1}' directory.".format(name, directory))
 
 #@click.option('--update', '-u')
 ##-u, --update copy only when the SOURCE file is newer than the destination file or when the destination file is missing
@@ -346,7 +408,6 @@ def download_files(source, destination, timeout, chunk_size):
 
     #client = Client(hostname, port, token)
     #client.download_files(source, destination, chunk_size, process_chunk)
-
 
 @cli.command('remove')
 def remove_file():

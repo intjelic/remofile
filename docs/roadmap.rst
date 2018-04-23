@@ -5,6 +5,11 @@ While Remofile already features the most useful features, it still has a
 list of features that could greatly enhances the software without
 deviate from its simple concept philosophy.
 
+
+file commands comes with -p to creates subdirectories andd -u command
+also update the file timestamp
+
+
 - compression level
 
 -z, --compress              compress file data during the transfer

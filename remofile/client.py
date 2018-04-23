@@ -537,13 +537,12 @@ class Client:
         raise the ValueError exception. If the source file can't be
         found or is not a file, the SourceNotFound exception is raised.
 
-        The **destination** parameter refers to the local directory in
-        which the file must be transfered to. It must be a
-        :term:`path-like object` of an **existing** directory. If it's
-        a relative path, it's treated like relative to the current
-        working directory. If the destination directory can't be found
-        or is not a directory, the DestinationNotFound exception is
-        raised.
+        The **destination** parameter refers to **an existing** local
+        directory in which the file must be transfered to. It must
+        be a :term:`path-like object` and if it's a relative path, it's
+        treated like relative to the current working directory. If the
+        destination directory can't be found or is not a directory, the
+        DestinationNotFound exception is raised.
 
         The name parameter can be used to rename the source file while
         downloading it (the content is guaranteed to be the same). It
@@ -634,18 +633,17 @@ class Client:
         found or is not a directory, the SourceNotFound exception is
         raised.
 
-        The **destination** parameter refers to the local directory in
-        which the file must be transfered to. It must be a
-        :term:`path-like object` of an **existing** directory. If it's
-        a relative path, it's treated like relative to the current
-        working directory. If the destination directory can't be found
-        or is not a directory, the DestinationNotFound exception is
-        raised.
+        The **destination** parameter refers to **an existing** local
+        directory in which the directory must be transfered to. It must
+        be a :term:`path-like object` and if it's a relative path, it's
+        treated like relative to the current working directory. If the
+        destination directory can't be found or is not a directory, the
+        DestinationNotFound exception is raised.
 
-        The name parameter can be used to rename the source file while
-        downloading it (the content is guaranteed to be the same). It
-        must be a string of a :term:`valid file name` and must not
-        conflict with an existing file (or directory) in the destination
+        The name parameter can be used to rename the source directory
+        while downloading it (the content is guaranteed to be the same).
+        It must be a string of a :term:`valid file name` and must not
+        conflict with an existing directory (or file) in the destination
         directory. By default, it reads the name from the source to
         leave it unchanged. If the name isn't valid, a
         :py:exc:`InvalidFileName` is raised and if the file is
@@ -686,15 +684,16 @@ class Client:
         if not source.is_absolute():
             raise ValueError("Source must be an absolute path")
 
-        # raise SourceNotFound exception if the source file doesn't
-        # exist or is not a file
-        try:
-            files = self.list_files(source.parent, timeout)
-        except Exception:
-            raise NotImplementedError # catch and treat relevant exceptions
+        # raise SourceNotFound exception if the source directory doesn't
+        # exist or is not a directory
+        if str(source) != source.root:
+            try:
+                files = self.list_files(source.parent, timeout)
+            except Exception:
+                raise NotImplementedError # catch and treat relevant exceptions
 
-        if source.name not in files or files[source.name][0] == True:
-            raise SourceNotFound("Source file could not be found")
+            if source.name not in files or files[source.name][1] == True:
+                raise SourceNotFound("Source directory could not be found")
 
         # check if the destination directory exists and raises
         # DestinationNotFound exception if it doesn't exist or is not
@@ -707,8 +706,15 @@ class Client:
         if name in os.listdir(destination):
             raise FileExistsError
 
+        # the following code is a workaround! it should let the server
+        # refuse the chunk size instead, but if we do that, the
+        # first directory is created first and left undeleted after the
+        # first file is denied from being downloaded
+        if chunk_size == 0 or chunk_size > 8192:
+            raise ValueError("Chunk size value is invalid")
+
         # foobars
-        self._download_file(source, destination, name, chunk_size, process_chunk, timeout)
+        self._download_directory(source, destination, name, chunk_size, process_chunk, timeout)
 
 
     def delete_file(self, timeout=None):
@@ -997,7 +1003,21 @@ class Client:
         destination_file.close()
 
     def _download_directory(self, source, destination, name, chunk_size, process_chunk, timeout):
-        raise NotImplementedError
+
+        # the source is an absolute path pointing to the directory to
+        # create in destination
+        os.makedirs(destination / name)
+
+        files_list = self.list_files(source)
+        for file_name in files_list.keys():
+            is_directory, _, _ = files_list[file_name]
+
+            new_source = source / file_name
+
+            if not is_directory:
+                self._download_file(new_source, destination / name, file_name, chunk_size, process_chunk, timeout)
+            elif is_directory:
+                self._download_directory(new_source, destination / name, file_name, chunk_size, process_chunk, timeout)
 
     def _process_error_response(self, response):
         try:

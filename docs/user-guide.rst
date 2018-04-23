@@ -9,7 +9,7 @@ The User Guide
     update in the upcoming weeks.
 
 The user guide gets you started with using Remofile. It covers the
-installation and the principles. For more exhaustive documentation,
+installation and the main features. For more exhaustive documentation,
 refer to the respective documents (the :doc:`commands list
 </commands-list>`, the :doc:`API reference </api-reference>`, the
 :doc:`protocol specifications </protocol-specifications>`)
@@ -18,7 +18,9 @@ refer to the respective documents (the :doc:`commands list
 * Run a testing server
 * Shell interactions
 * Synchronizing directories
-* Standalone server
+* A look at the programming interface
+* Securing the connection
+* Standalone server as a service
 
 Easy installation
 -----------------
@@ -37,12 +39,16 @@ This can easily be done like this.
     python3 -m virtualenv python-env
     source python-env/bin/activate
 
-Foobar.
+Installing via Pipy provides flexibility as it doesn't have to install
+system-wide but you can install from the underlying operating system
+package manager as well. Remofile is packaged for various Linux
+distributions. Check out the following document.
 
 Run a testing server
 --------------------
-Before deploying online, better do some local tests to famaliarize
-yourself with the tool.
+Before deploying online, better do some **local** tests to famaliarize
+yourself with the tool. We'll start with running a local Remofile server
+and interact with it.
 
 Remofile doesn't know about users and passwords, instead you use a
 token to authenticate.
@@ -51,33 +57,66 @@ token to authenticate.
 
     remofile generate-token
 
-This generates a token like the following `qRkVWJcFRqi7rsNMbagaDd`. Copy
-paste and store it somewhere as it acts as a unique password.
+This generates a token which is a 16 letters long string. We'll be using
+**qRkVWJcFRqi7rsNMbagaDd** for demonstration purpose. Copy paste and
+store yours somewhere as it acts as a unique password.
 
-Just like FTP, you want to jail and expose a directory to a client. It
-isn't too hard to do, just use the `run` command.
+Just like FTP, you want to jail and expose a directory to multiple
+clients. It isn't too hard, the `run` command allows you to do just
+that.
 
 ::
 
     mkdir my-directory/
     remofile run my-directory 6768 qRkVWJcFRqi7rsNMbagaDd
 
+It takes the directory (that must be served across the network), the
+port (on which to listen) and the previously generated token as
+parameters.
+
 This will run a Remofile server which is attached to the current
-console. Don't interupt it and open another console.
+console. Don't expect this command to return... and don't interupt it!
+Now, open another console to continue and work with the server.
 
 .. note::
 
-    Remofile makes the assumption that all the files in the folder is
-    readable and writable and that it isn't modified in any way by
-    other processes while it's running.
+    There obviously are other ways to start a **Remofile** server, and
+    different options too. Notably, the `start` and `stop` commands
+    daemonize the proccess.
+
+    Also, if no token is given to the `run` command, one is
+    automatically generated and printed out in the connsole before it
+    starts.
+
+Before we continue, we must understand an important aspect of Remofile;
+its dumb nature. To have an uncomplicated tool to work with, Remofile
+makes the assumption that all the files in the folder being served are
+readable and writable by the user who started the process. It also makes
+the assumption that the directory isn't modified (in any way) by
+external mean while it's running. **But that should be common sense,
+shouldn't it ?**
+
+By not attempting to be smart, the overall interface and implementation
+becomes simpler and easier to deal with. If these two assumptions
+aren't respected, Remofile will still graciously fail with proper error
+messages.
 
 Shell interactions
 ------------------
-Even thought Remofile was initially desgined for integration in
-software, it also has a powerful set of command-lines allowing people
-to script file operations.
+Our next step in experimenting Remofile will be with its command-line
+interface. Even though it initially was desgined for integration in
+software (from code), it also has a powerful set of command-lines
+allowing people to script file operations.
 
-To be written.
+Let's understand the most primitive file operations we can do.
+
+::
+
+    remofile list /
+
+If you're smart enough, you can have an Remofile server online 24/7 and
+ditch your USB key. Transfering files across are a few trivail commands
+away.
 
 Upload and download files
 -------------------------
