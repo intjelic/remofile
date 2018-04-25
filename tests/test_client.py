@@ -404,7 +404,7 @@ class TestClient(unittest.TestCase):
         expected_chunk_data = (file_data[:512], file_data[512:1024], file_data[1024:])
         expected_remaining_bytes = (1052, 1052-512, 1052-512-512)
 
-        def custom_process_chunk(chunk_data, remaining_bytes, file_size):
+        def custom_process_chunk(chunk_data, remaining_bytes, file_size, file_name):
             self.assertEqual(chunk_data, expected_chunk_data[custom_process_chunk.counter])
             self.assertEqual(remaining_bytes, expected_remaining_bytes[custom_process_chunk.counter])
             self.assertEqual(file_size, 1052)
@@ -425,7 +425,7 @@ class TestClient(unittest.TestCase):
 
         # test uploading a file with a custom process chunk callback
         # that interupts the upload
-        def custom_process_chunk(chunk_data, remaining_bytes, file_size):
+        def custom_process_chunk(chunk_data, remaining_bytes, file_size, file_name):
             custom_process_chunk.counter += 1
 
             if custom_process_chunk.counter == 1:

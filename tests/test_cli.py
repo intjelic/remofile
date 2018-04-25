@@ -7,6 +7,7 @@
 
 import os
 import time
+import shutil
 import threading
 from pathlib import PosixPath
 from tempfile import TemporaryDirectory
@@ -290,6 +291,11 @@ class TestCLI(unittest.TestCase):
 
         time.sleep(0.05)
 
+        # unset the environment
+        del os.environ["REMOFILE_HOSTNAME"]
+        del os.environ["REMOFILE_PORT"]
+        del os.environ["REMOFILE_TOKEN"]
+
     def test_file_command(self):
         """ Test the upload command.
 
@@ -309,8 +315,180 @@ class TestCLI(unittest.TestCase):
     def test_upload_command(self):
         """ Test the upload command.
 
-        Long description.
+        Local working directory.
+
+            foo/
+                bar.bin
+                qaz/xyz.img
+            tox.iso
+
+        To simplify tests, don't check binary content of uploaded files
+        and subdirectories (this is covered by client tests).
+
+        pass
         """
+
+        # create loal working directory
+        self.create_local_directory('/', 'foo')
+        self.create_local_file('/foo', 'bar.bin', 1052)
+        self.create_local_directory('/foo', 'qaz')
+        self.create_local_file('/foo/qaz', 'xyz.img', 312)
+        self.create_local_file('/', 'tox.iso', 860)
+
+        tox_file_path = self.remote_directory_path / 'tox.iso'
+        foo_directory_path = self.remote_directory_path / 'foo'
+
+        # prepare common variables
+        pass
+
+        # test with incorrectly configured environment
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', 'tox.iso'])
+        self.assertIn('Configure your environment and try again.', result.output)
+        self.assertEqual(result.exit_code, 1)
+
+        time.sleep(0.05)
+
+        # set the environment
+        os.environ["REMOFILE_HOSTNAME"] = 'localhost'
+        os.environ["REMOFILE_PORT"]     = str(PORT)
+        os.environ["REMOFILE_TOKEN"]    = TOKEN
+
+        # test upload one file
+        self.assertFalse(tox_file_path.exists())
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['tox.iso', '/'])
+
+        self.assertTrue(tox_file_path.is_file())
+        self.assertEqual(result.exit_code, 0)
+        print(result.output)
+
+        os.remove(tox_file_path)
+
+        time.sleep(0.05)
+
+        # test upload one directory
+        self.assertFalse(foo_directory_path.exists())
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', '/'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertFalse(foo_directory_path.exists())
+
+        time.sleep(0.05)
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', '/', '-r'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertTrue(foo_directory_path.is_dir())
+
+        shutil.rmtree(foo_directory_path)
+
+        time.sleep(0.05)
+
+        # test upload one file and one directory
+        self.assertFalse(tox_file_path.exists())
+        self.assertFalse(foo_directory_path.exists())
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', 'tox.iso', '/'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertTrue(tox_file_path.is_file())
+        self.assertFalse(foo_directory_path.exists())
+        os.remove(tox_file_path)
+
+        time.sleep(0.05)
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', 'tox.iso', '/', '-r'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertTrue(tox_file_path.is_file())
+        self.assertTrue(foo_directory_path.is_dir())
+
+        os.remove(tox_file_path)
+        shutil.rmtree(foo_directory_path)
+
+        time.sleep(0.05)
+
+        # test upload files with the progress flag
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', 'tox.iso', '/', '-r'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertNotIn('bar.bin', result.output)
+        self.assertNotIn('xyz.img', result.output)
+        self.assertNotIn('tox.iso', result.output)
+        self.assertEqual(result.output.count('100.00%'), 0)
+
+        os.remove(tox_file_path)
+        shutil.rmtree(foo_directory_path)
+
+        time.sleep(0.05)
+
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo', 'tox.iso', '/', '-r', '-p'])
+        self.assertEqual(result.exit_code, 0) # might change
+
+        self.assertIn('bar.bin', result.output)
+        self.assertIn('xyz.img', result.output)
+        self.assertIn('tox.iso', result.output)
+        self.assertEqual(result.output.count('100.00%'), 3)
+
+        os.remove(tox_file_path)
+        shutil.rmtree(foo_directory_path)
+
+        time.sleep(0.05)
+
+        # test upload files with invalid source
+        runner = CliRunner()
+        result = runner.invoke(upload_files, ['foo.bin', '/'])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn('Unable to upload file', result.output)
+        self.assertIn('no such file or directory exists', result.output)
+
+        time.sleep(0.2)
+
+        ## test upload files with relative destination path
+        #runner = CliRunner()
+        #result = runner.invoke(upload_files, ['foo', 'tox.iso', 'foo', '-r'])
+        #self.assertEqual(result.exit_code, 1)
+        #self.assertIn('Unable to upload files', result.output)
+        #self.assertIn('destination must be an absolute path', result.output)
+
+        #time.sleep(0.05)
+
+        ## test upload files with unexisting destination
+        #runner = CliRunner()
+        #result = runner.invoke(upload_files, ['foo', 'tox.iso', '/foo', '-r'])
+        #print(result.output)
+        #self.assertEqual(result.exit_code, 1)
+        #self.assertIn('Unable to upload files', result.output)
+        #self.assertIn('no such directory exists', result.output)
+
+        #time.sleep(0.2)
+
+        ## test upload files with conflicting files
+        #self.create_remote_file('/', 'tox.iso', 1204)
+
+        #runner = CliRunner()
+        #result = runner.invoke(upload_files, ['tox.iso', '/'])
+        #self.assertEqual(result.exit_code, 1)
+        #self.assertIn('Unable to upload file', result.output)
+        #self.assertIn("it's conflicting with an existing file", result.output)
+
+        #time.sleep(0.05)
+
+        # test upload files with invalid names (shouldn't happen)
+        pass
+
+        # test min-size and max-size options
+        pass
+
 
         # create remote working directory tree
         # /foo/

@@ -8,12 +8,6 @@ The User Guide
     The user guide is still fairly incomplete. Expect some serious
     update in the upcoming weeks.
 
-The user guide gets you started with using Remofile. It covers the
-installation and the main features. For more exhaustive documentation,
-refer to the respective documents (the :doc:`commands list
-</commands-list>`, the :doc:`API reference </api-reference>`, the
-:doc:`protocol specifications </protocol-specifications>`)
-
 * Easy installation
 * Run a testing server
 * Shell interactions
@@ -21,6 +15,12 @@ refer to the respective documents (the :doc:`commands list
 * A look at the programming interface
 * Securing the connection
 * Standalone server as a service
+
+The user guide gets you started with using Remofile. It covers the
+installation and the main features. For more exhaustive documentation,
+refer to the following documents; the :doc:`commands list </commands-list>`,
+the :doc:`API reference </api-reference>`, the :doc:`protocol
+specifications </protocol-specifications>`.
 
 Easy installation
 -----------------
@@ -39,10 +39,11 @@ This can easily be done like this.
     python3 -m virtualenv python-env
     source python-env/bin/activate
 
-Installing via Pipy provides flexibility as it doesn't have to install
-system-wide but you can install from the underlying operating system
-package manager as well. Remofile is packaged for various Linux
-distributions. Check out the following document.
+Installing with `pypi <https://pypi.org/>`_ in a virtual environment
+provides flexibility as **Remofile** isn't installed system-wide. But
+you can install with the underlying operating system package manager as
+well. Packages for various Linux distributions do exist; check out the
+following :doc:`document </packages>`.
 
 Run a testing server
 --------------------
@@ -74,15 +75,16 @@ It takes the directory (that must be served across the network), the
 port (on which to listen) and the previously generated token as
 parameters.
 
-This will run a Remofile server which is attached to the current
-console. Don't expect this command to return... and don't interupt it!
-Now, open another console to continue and work with the server.
+This will run a Remofile server attached to the current console. Don't
+expect this command to return... and don't interupt it! Now, open
+another console to continue.
 
 .. note::
 
-    There obviously are other ways to start a **Remofile** server, and
-    different options too. Notably, the `start` and `stop` commands
-    daemonize the proccess.
+    The `start` and `stop` commands also starts a Remofile server, but
+    instead it daemonizes the proccess and you deal with a pid file.
+    The command you use to start the server also impacts the way you
+    run it as a service later.
 
     Also, if no token is given to the `run` command, one is
     automatically generated and printed out in the connsole before it

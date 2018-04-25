@@ -62,6 +62,15 @@ incorrect.
 Read the documentation to understand their possible value.
 """
 
+LIST_ALL_FLAG_DESCRIPTION           = "Display additional file information."
+LIST_RECURSIVE_FLAG_DESCRIPTION     = "List directories and their contents recursively."
+FILE_UPDATE_FLAG_DESCRIPTION        = "Ignore (and don't fail) if files already exist."
+FOLDER_UPDATE_FLAG_DESCRIPTION      = "Ignore (and don't fail) if directories already exist."
+UPLOAD_RECURSIVE_FLAG_DESCRIPTION   = "Upload directories and their content recursively."
+DOWNLOAD_RECURSIVE_FLAG_DESCRIPTION = "Download directories and their content recursively."
+PROGRESS_FLAG_DESCRIPTION           = "Display a progress indicator."
+TIMEOUT_FLAG_DESCRIPTION            = "Adjust the timeout value in milliseconds."
+
 def get_info_from_environment():
     hostname = os.environ.get("REMOFILE_HOSTNAME")
     port     = os.environ.get("REMOFILE_PORT", 6768)
@@ -99,9 +108,9 @@ def cli():
 
 @cli.command('list')
 @click.argument('directory', default='/')
-@click.option('--all', '-a', 'with_metadata', is_flag=True)
-@click.option('--recursive', '-r', is_flag=True)
-@click.option('--timeout', '-t', type=click.INT)
+@click.option('--all',       '-a', 'with_metadata', is_flag=True, help=LIST_ALL_FLAG_DESCRIPTION)
+@click.option('--recursive', '-r', is_flag=True,                  help=LIST_RECURSIVE_FLAG_DESCRIPTION)
+@click.option('--timeout',   '-t', type=click.INT,                help=TIMEOUT_FLAG_DESCRIPTION)
 def list_files(directory, with_metadata, recursive, timeout):
     """ List files in the remote directory.
 
@@ -185,8 +194,8 @@ def list_files(directory, with_metadata, recursive, timeout):
 @cli.command('file')
 @click.argument('name')
 @click.argument('directory', default='/')
-@click.option('--update', '-u', is_flag=True)
-@click.option('--timeout', '-t', type=click.INT)
+@click.option('--update',  '-u', is_flag=True,   help=FILE_UPDATE_FLAG_DESCRIPTION)
+@click.option('--timeout', '-t', type=click.INT, help=TIMEOUT_FLAG_DESCRIPTION)
 def create_file(name, directory, update, timeout):
     """ Create a file in the remote directory.
 
@@ -237,8 +246,8 @@ def create_file(name, directory, update, timeout):
 @cli.command('folder')
 @click.argument('name')
 @click.argument('directory', default='/')
-@click.option('--update', '-u', is_flag=True)
-@click.option('--timeout', '-t', type=click.INT)
+@click.option('--update',  '-u', is_flag=True,   help=FOLDER_UPDATE_FLAG_DESCRIPTION)
+@click.option('--timeout', '-t', type=click.INT, help=TIMEOUT_FLAG_DESCRIPTION)
 def make_directory(name, directory, update, timeout):
     """ Create a folder in the remote directory.
 
@@ -299,29 +308,33 @@ def make_directory(name, directory, update, timeout):
 #@click.option('--out-format', help="output updates using the specified FORMAT")
 #@click.option('--log-file', help="log what we're doing to the specified FILE")
 #@click.option('--log-file-format', help="log updates using the specified FMT")
+#@click.option('--chunk-size', default=512, type=click.INT)
 @cli.command('upload')
 @click.argument('source', nargs=-1)
 @click.argument('destination', nargs=1)
-@click.option('--recursive', '-r', is_flag=True)
-@click.option('--progress', '-p')
-@click.option('--chunk-size', default=512, type=click.INT)
-@click.option('--timeout', '-t', type=click.INT)
-def upload_files(source, destination, recursive, progress, chunk_size, timeout):
-    #min_size, max_size, out_format, log_file, log_file_format):
+@click.option('--recursive', '-r', is_flag=True,   help=UPLOAD_RECURSIVE_FLAG_DESCRIPTION)
+@click.option('--progress',  '-p', is_flag=True,   help=PROGRESS_FLAG_DESCRIPTION)
+@click.option('--timeout',   '-t', type=click.INT, help=TIMEOUT_FLAG_DESCRIPTION)
+def upload_files(source, destination, recursive, progress, timeout):
     """ Upload files to the remote directory.
 
     This is a client-related command that uploads files to the remote
-    directory. The source must be files or directories on the local
-    filesystem and the destination must be an **existing** directory in
-    the remote directory. Unlike the source, the destination must be an
-    absolute directory. If source refers to one or more directories, the
-    recursiv flag must be set otherwise they'll be skipped.
+    directory. The source must be files or directories located on the
+    local filesystem and the destination must be an **existing**
+    directory located in the remote directory. Unlike the source, the
+    destination must be an absolute path.
 
-    The progress flag allows to display the progression of the transfer
-    which is useful for large files.
+    If source refers to one or more directories, the recursive flag must
+    be set otherwise they'll be skipped. The progress flag allows to
+    display the progression of the transfer which is useful for large
+    files.
 
-    Document chunk_size.
-    Document timeout.
+    Examples. ::
+
+        rmf upload -r -p src/my-file.txt src/my-directory/ /dst
+
+    Additionally, the **--timeout** flag allows you to adjust the number
+    of milliseconds to wait before giving up on the server response.
     """
 
     client = create_client()
@@ -331,16 +344,12 @@ def upload_files(source, destination, recursive, progress, chunk_size, timeout):
     source = (PosixPath(path) for path in source)
     destination = PosixPath(destination)
 
-    # foobar
-    def process_chunk(chunk_data, remaining_bytes, file_size):
-        # if progress flag was passed, show progress status
-        #if progress:
-        #name = source.name
+    def display_progress(chunk_data, remaining_bytes, file_size, file_name):
 
-        progress = (file_size - remaining_bytes) / file_size * 100
+        chunk_size = 512
+        progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
 
-        #sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, name))
-        sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, process_chunk.name))
+        sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
         sys.stdout.flush()
 
         if remaining_bytes <= chunk_size:
@@ -348,72 +357,213 @@ def upload_files(source, destination, recursive, progress, chunk_size, timeout):
 
         return True
 
-    for path in source:
-        if path.is_file():
-            client.upload_file(path, destination, None, 512, process_chunk, timeout)
-        elif path.is_dir():
-            client.upload_directory(path, destination, None, 512, process_chunk, timeout)
-        else:
+    def upload_file(path):
+        try:
+            if progress:
+                client.upload_file(path, destination, None, 512, display_progress, None)
+            else:
+                client.upload_file(path, destination, timeout=timeout)
+        except ValueError:
+            print("Unable to upload files to '{0}'; destination must be an absolute path.".format(destination))
+            exit(1)
+        except SourceNotFound:
+            print("Unable to upload file '{0}'; no such file exists.".format(path))
+            exit(1)
+        except DestinationNotFound:
+            print("Unable to upload files to '{0}'; no such directory exists.".format(destination))
+            exit(1)
+        except FileExistsError:
+            print("Unable to upload file '{0}'; it's conflicting with an existing file.".format(path))
+            exit(1)
+        except InvalidFileName:
             raise NotImplementedError
+        except TimeoutError:
+            print(TIMEOUT_ERROR_MESSAGE)
+            exit(1)
+
+    def upload_directory(path):
+        try:
+            if progress:
+                client.upload_directory(path, destination, None, 512, display_progress, None)
+            else:
+                client.upload_directory(path, destination, timeout=timeout)
+        except ValueError:
+            print("Unable to upload files to '{0}'; destination must be an absolute path.".format(destination))
+            exit(1)
+        except SourceNotFound:
+            print("Unable to upload folder '{0}'; no such directory exists.".format(path))
+            exit(1)
+        except DestinationNotFound:
+            print("Unable to upload files to '{0}'; no such directory exists.".format(destination))
+            exit(1)
+        except FileExistsError:
+            print("Unable to upload folder '{0}'; it's conflicting with an existing file.".format(path))
+            exit(1)
+        except InvalidFileName:
+            raise NotImplementedError
+        except TimeoutError:
+            print(TIMEOUT_ERROR_MESSAGE)
+            exit(1)
+
+    for path in source:
+        if not path.exists():
+            print("Unable to upload file '{0}'; no such file or directory exists.".format(path))
+            exit(1)
+
+        if path.is_file():
+            upload_file(path)
+        elif path.is_dir():
+            if recursive:
+                upload_directory(path)
+            else:
+                print("Skip uploading folder '{0}'; the recursive flag must be set.".format(path))
+        else:
+            raise NotImplementedError("Uploading symbolic links isn't supported yet.")
+
+    del client # debug code, for some reason the socket wown't be disconnected
 
 @cli.command('download')
-@click.argument('source')
-@click.argument('destination')
-@click.option('--timeout', '-t', type=click.INT)
-@click.option('--chunk-size', default=512, type=click.INT)
-def download_files(source, destination, timeout, chunk_size):
+@click.argument('source', nargs=-1)
+@click.argument('destination', nargs=1)
+@click.option('--recursive', '-r', is_flag=True,   help=DOWNLOAD_RECURSIVE_FLAG_DESCRIPTION)
+@click.option('--progress',  '-p', is_flag=True,   help=PROGRESS_FLAG_DESCRIPTION)
+@click.option('--timeout',   '-t', type=click.INT, help=TIMEOUT_FLAG_DESCRIPTION)
+def download_files(source, destination, recursive, progress, timeout):
     """ Download files from the remote directory.
 
-    - source is either a file or a directory
-    - if source is a directory, ensure --recursive is on, or abort the operation
+    This is a client-related command that downloads files from the
+    remote directory. The source must be files or directories located on
+    the remote directory and the destination must be an **existing**
+    directory located on the local filesystem. Unlike the destination,
+    the source must be absolute paths.
 
-    - destination must be a directory
+    If source refers to one or more directories, the recursive flag must
+    be set otherwise they'll be skipped. The progress flag allows to
+    display the progression of the transfer which is useful for large
+    files.
 
-    - timeout corresponds to time allowed between chunks
+    Examples. ::
 
-    Long description.
+        rmf download -r -p /src/my-file.txt /src/my-directory/ dst/
+
+    Additionally, the **--timeout** flag allows you to adjust the number
+    of milliseconds to wait before giving up on the server response.
     """
 
-    ## check if source is a file or a directory
-    #source = PurePosixPath(source)
-    #files = client.list_files(source.parent)
-    #files = client.list_files(source.parent)
-    #files = dict((name, (is_directory, size, last_accessed)) for name, is_directory, size, last_accessed in files)
-    #is_directory = files[source.name] ==
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
-    #is_directory = files[source.name] ==
+    # ensure we work with pure posix paths
+    source = (PurePosixPath(path) for path in source)
+    destination = PosixPath(destination)
 
-    # if source is a directory, abort operation if no --recursive flag
-    pass
+    def display_progress(chunk_data, remaining_bytes, file_size, file_name):
 
-    # check if destination is a directory, or abort the operation
-    pass
+        chunk_size = 512
+        progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
 
-    ## read environment variable for server information and print
-    ## misconfigured environment error if some variables are missing
-    #hostname, port, token = get_info_from_environment()
+        sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
+        sys.stdout.flush()
 
-    #if not hostname or not port or not token:
-        #print(MISCONFIGURED_ENVIRONMENT_MESSAGE)
-        #exit(1)
+        if remaining_bytes <= chunk_size:
+            sys.stdout.write('\n')
 
-    ## if not specified, adjust timeout to the default global timeout
-    #if not timeout:
-        #timeout = DEFAULT_TIMEOUT_VALUE
+        return True
 
-    #def process_chunk(chunk_data, remaining_bytes, file_size):
-        ## do nothing for now...
+    def download_file(path):
+        try:
+            if progress:
+                client.download_file(path, destination, None, 512, display_progress, None)
+            else:
+                client.download_file(path, destination, timeout=timeout)
+        except Exception as error:
+            print(error)
+            exit(1)
 
-        #return True
+        #except ValueError:
+            #print("Unable to upload files to '{0}'; destination must be an absolute path.".format(destination))
+            #exit(1)
+        #except SourceNotFound:
+            #print("Unable to upload file '{0}'; no such file exists.".format(path))
+            #exit(1)
+        #except DestinationNotFound:
+            #print("Unable to upload files to '{0}'; no such directory exists.".format(destination))
+            #exit(1)
+        #except FileExistsError:
+            #print("Unable to upload file '{0}'; it's conflicting with an existing file.".format(path))
+            #exit(1)
+        #except InvalidFileName:
+            #raise NotImplementedError
+        #except TimeoutError:
+            #print(TIMEOUT_ERROR_MESSAGE)
+            #exit(1)
 
-    #client = Client(hostname, port, token)
-    #client.download_files(source, destination, chunk_size, process_chunk)
+    def download_directory(path):
+        try:
+            if progress:
+                client.download_directory(path, destination, None, 512, display_progress, None)
+            else:
+                client.download_directory(path, destination, timeout=timeout)
+        except Exception as error:
+            print(error)
+            exit(1)
+        #except ValueError:
+            #print("Unable to upload files to '{0}'; destination must be an absolute path.".format(destination))
+            #exit(1)
+        #except SourceNotFound:
+            #print("Unable to upload folder '{0}'; no such directory exists.".format(path))
+            #exit(1)
+        #except DestinationNotFound:
+            #print("Unable to upload files to '{0}'; no such directory exists.".format(destination))
+            #exit(1)
+        #except FileExistsError:
+            #print("Unable to upload folder '{0}'; it's conflicting with an existing file.".format(path))
+            #exit(1)
+        #except InvalidFileName:
+            #raise NotImplementedError
+        #except TimeoutError:
+            #print(TIMEOUT_ERROR_MESSAGE)
+            #exit(1)
+
+    for path in source:
+
+        is_directory = True
+
+        if path != '/':
+            files = client.list_files(path.parent)
+
+            if path.name not in files:
+                print("Unable to download file '{0}'; no such file or directory exists.".format(path))
+                exit(1)
+
+            is_directory = files[path.name][0]
+
+        if not is_directory:
+            download_file(path)
+        else:
+            if recursive:
+                download_directory(path)
+            else:
+                print("Skip downloading folder '{0}'; the recursive flag must be set.".format(path))
+
+    del client # debug code, for some reason the socket wown't be disconnected
 
 @cli.command('remove')
-def remove_file():
+@click.argument('name')
+@click.argument('directory', default='/')
+@click.option('--timeout', '-t', type=click.INT)
+def remove_file(name, directory, timeout):
+    """ Remove files in the remote directory.
 
-    if not timeout:
-        timeout = DEFAULT_TIMEOUT_VALUE
+    This is a client-related command that removes a file or a folder
+    located in the remote directory. This command is akin to the POSIX
+    **rm** command found in Unix-like OSes.
+
+    Rest of the description here.
+    """
+
+    client = create_client()
+    timeout = adjust_timeout(timeout)
 
     pass
 
@@ -460,7 +610,7 @@ def run_server(directory, port, token, file_size_limit, min_chunk_size, max_chun
 @click.argument('directory')
 @click.argument('port', default=6768)
 @click.argument('token', required=False)
-@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'))
+@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'), help="foobar barfooo")
 @click.option('--file-size-limit', default=FILE_SIZE_LIMIT,    type=click.INT)
 @click.option('--min-chunk-size',  default=MINIMUM_CHUNK_SIZE, type=click.INT)
 @click.option('--max-chunk-size',  default=MAXIMUM_CHUNK_SIZE, type=click.INT)
@@ -508,6 +658,24 @@ def stop_server(pidfile):
 
     Daemon.stop(pidfile)
 
+@cli.command('generate-token')
+def generate_token():
+    """ Generate a token.
+
+    Long description here.
+    """
+
+    pass
+
+@cli.command('generate-keys')
+def generate_keys():
+    """ Generate a pair of keys.
+
+    Long description here.
+    """
+
+    pass
+
 cli.add_command(list_files)
 cli.add_command(create_file)
 cli.add_command(make_directory)
@@ -518,5 +686,8 @@ cli.add_command(remove_file)
 cli.add_command(run_server)
 cli.add_command(start_server)
 cli.add_command(stop_server)
+
+cli.add_command(generate_token)
+cli.add_command(generate_keys)
 
 

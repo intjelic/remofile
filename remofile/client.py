@@ -317,17 +317,32 @@ class Client:
 
         Additionally, you can adjust the chunk size value which defines
         how fragmented the file has to be sent to the server and/or pass
-        a callback that process each fragment **before** its sent to the
-        server. Usually, the chunk value is between 512 and 8192.
+        a callback that process each fragment **before** it's sent to
+        the server. Usually, the chunk value is between 512 and 8192.
 
-        The callback is called with various parameter; the chunk data,
-        the remaining bytes to be sent, the file size and the file name.
-        For instance, it can be used to display a progress bar. Here is
-        an example. ::
+        The callback is called with various parameters and in a
+        specific order; the chunk data, the remaining bytes, the file
+        size and the file name. The chunk data is a bytes string of the
+        actual data about to be sent to the server. The remaining bytes
+        is an integer indicating the number of bytes left to be sent
+        (and this includes the current chunk of data). The file size is
+        a fixed integer telling how large the file is, and the file name
+        is the file name currently being processed.
 
-            def custom_process_chunk(chunk_data, remaining_bytes, file_size):
-                progress = (file_size - remaining_bytes) / file_size * 100
-                sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, custom_process_chunk.name))
+        For instance, it can be used to display a progress indicator.
+        Here is an example. ::
+
+            def display_progress(chunk_data, remaining_bytes, file_size, file_name):
+                chunk_size = 512
+                progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
+
+                sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
+                sys.stdout.flush()
+
+                if remaining_bytes <= chunk_size:
+                    sys.stdout.write('\n')
+
+                return True
 
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
@@ -439,6 +454,35 @@ class Client:
         leave it unchanged. If the name isn't valid, a
         :py:exc:`InvalidFileName` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
+
+        Additionally, you can adjust the chunk size value which defines
+        how fragmented files have to be sent to the server and/or pass
+        a callback that process each fragment **before** it's sent to
+        the server. Usually, the chunk value is between 512 and 8192.
+
+        The callback is called with various parameters and in a
+        specific order; the chunk data, the remaining bytes, the file
+        size and the file name. The chunk data is a bytes string of the
+        actual data about to be sent to the server. The remaining bytes
+        is an integer indicating the number of bytes left to be sent
+        (and this includes the current chunk of data). The file size is
+        a fixed integer telling how large the file is, and the file name
+        is the file name currently being processed.
+
+        For instance, it can be used to display a progress indicator.
+        Here is an example. ::
+
+            def display_progress(chunk_data, remaining_bytes, file_size, file_name):
+                chunk_size = 512
+                progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
+
+                sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
+                sys.stdout.flush()
+
+                if remaining_bytes <= chunk_size:
+                    sys.stdout.write('\n')
+
+                return True
 
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
@@ -553,6 +597,36 @@ class Client:
         :py:exc:`InvalidFileName` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
+        Additionally, you can adjust the chunk size value which defines
+        how fragmented the file has to be received from the server
+        and/or pass a callback that process each fragment **before**
+        it's written to the local file. Usually, the chunk value is
+        between 512 and 8192.
+
+        The callback is called with various parameters and in a
+        specific order; the chunk data, the remaining bytes, the file
+        size and the file name. The chunk data is a bytes string of the
+        actual data just received from the server. The remaining bytes
+        is an integer indicating the number of bytes left to be received
+        (and this includes the current chunk of data). The file size is
+        a fixed integer telling how large the file is, and the file name
+        is the file name currently being processed.
+
+        For instance, it can be used to display a progress indicator.
+        Here is an example. ::
+
+            def display_progress(chunk_data, remaining_bytes, file_size, file_name):
+                chunk_size = 512
+                progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
+
+                sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
+                sys.stdout.flush()
+
+                if remaining_bytes <= chunk_size:
+                    sys.stdout.write('\n')
+
+                return True
+
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
@@ -648,6 +722,36 @@ class Client:
         leave it unchanged. If the name isn't valid, a
         :py:exc:`InvalidFileName` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
+
+        Additionally, you can adjust the chunk size value which defines
+        how fragmented files have to be received from the server and/or
+        pass a callback that process each fragment **before** it's
+        written to the local file. Usually, the chunk value is
+        between 512 and 8192.
+
+        The callback is called with various parameters and in a
+        specific order; the chunk data, the remaining bytes, the file
+        size and the file name. The chunk data is a bytes string of the
+        actual data just received from the server. The remaining bytes
+        is an integer indicating the number of bytes left to be received
+        (and this includes the current chunk of data). The file size is
+        a fixed integer telling how large the file is, and the file name
+        is the file name currently being processed.
+
+        For instance, it can be used to display a progress indicator.
+        Here is an example. ::
+
+            def display_progress(chunk_data, remaining_bytes, file_size, file_name):
+                chunk_size = 512
+                progress = (file_size - (remaining_bytes - len(chunk_data))) / file_size * 100
+
+                sys.stdout.write("\r{0:0.2f}% | {1}".format(progress, file_name))
+                sys.stdout.flush()
+
+                if remaining_bytes <= chunk_size:
+                    sys.stdout.write('\n')
+
+                return True
 
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
@@ -827,8 +931,7 @@ class Client:
 
             # foobar
             if process_chunk:
-                process_chunk.name = source.name # debug
-                should_continue = process_chunk(chunk_data, remaining_bytes, file_size)
+                should_continue = process_chunk(chunk_data, remaining_bytes, file_size, source.name)
 
                 if not should_continue:
                     request = make_cancel_transfer_request()
@@ -979,8 +1082,7 @@ class Client:
 
             # foobar
             if process_chunk:
-                process_chunk.name = name # debug
-                should_continue = process_chunk(chunk_data, remaining_bytes, file_size)
+                should_continue = process_chunk(chunk_data, remaining_bytes, file_size, source.name)
 
                 if not should_continue:
                     request = make_cancel_transfer_request()
