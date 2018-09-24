@@ -7,7 +7,7 @@
 
 import os
 import shutil
-import threading
+from multiprocessing import Process
 from pathlib import PurePosixPath, PosixPath
 from tempfile import TemporaryDirectory
 import unittest
@@ -37,14 +37,23 @@ class TestClient(unittest.TestCase):
         self.remote_directory = TemporaryDirectory()
         self.remote_directory_path = PosixPath(self.remote_directory.name)
 
-        # start the server in an external thread
-        self.server = Server(self.remote_directory_path, TOKEN)
+        # start the server in a child process
+        def server_target(root_directory):
+            server = Server(root_directory, TOKEN)
 
-        def server_loop(server):
+            import signal
+
+            def handle_sigterm(signum, frame):
+                handle_sigterm.server.terminate()
+
+            handle_sigterm.server = server
+
+            signal.signal(signal.SIGTERM, handle_sigterm)
+
             server.run(HOSTNAME, PORT)
 
-        self.server_thread = threading.Thread(target=server_loop, args=(self.server,))
-        self.server_thread.start()
+        self.server_process = Process(target=server_target, args=(self.remote_directory_path,))
+        self.server_process.start()
 
         # change working direcory to local working directory
         self.last_working_directory = os.getcwd()
@@ -55,9 +64,10 @@ class TestClient(unittest.TestCase):
         # restore current working directory
         os.chdir(self.last_working_directory)
 
-        # terminate the server and wait until it terminates
-        self.server.terminate()
-        self.server_thread.join()
+        # terminate the server (send SIGTERM) and wait until child process
+        # terminates
+        self.server_process.terminate()
+        self.server_process.join()
 
         # delete all testing contents in both local and remote working
         # directory
