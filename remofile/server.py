@@ -225,7 +225,7 @@ class Server:
         """
 
         # initialize sockets (router, dealer and socket)
-        context = zmq.Context.instance()
+        context = zmq.Context()
 
         self.router_address = 'tcp://{0}:{1}'.format(hostname, str(port))
         self.socket_address = 'inproc://socket'

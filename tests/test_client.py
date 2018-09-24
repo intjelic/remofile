@@ -68,7 +68,7 @@ class TestClient(unittest.TestCase):
         """ Create a temporary file in the 'remote' directory.
 
         This function creates a temporary file with a given name in a
-        given directory located in the temporary workinng 'remote'
+        given directory located in the temporary working 'remote'
         directory. It's filled with a given amount of random data.
 
         It returns a posix path of the created file and the generated

@@ -63,7 +63,7 @@ class Client:
 
         self.token = bytes(token, 'utf-8')
 
-        context = zmq.Context.instance()
+        context = zmq.Context()
 
         self.socket_address = 'tcp://{0}:{1}'.format(hostname, str(port))
 
