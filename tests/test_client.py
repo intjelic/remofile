@@ -197,7 +197,7 @@ class TestClient(unittest.TestCase):
         invalid_names = ['*baz', 'b"az', 'baz|']
 
         for invalid_name in invalid_names:
-            with self.assertRaises(InvalidFileName):
+            with self.assertRaises(FileNameError):
                 client.create_file(invalid_name, directory)
 
         # test creating a file with a conflicting name
@@ -258,7 +258,7 @@ class TestClient(unittest.TestCase):
         invalid_names = ['*baz', 'b"az', 'baz|']
 
         for invalid_name in invalid_names:
-            with self.assertRaises(InvalidFileName):
+            with self.assertRaises(FileNameError):
                 client.make_directory(invalid_name, directory)
 
         # test making a directory with a conflicting name

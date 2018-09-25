@@ -158,7 +158,7 @@ class Client:
         The name parameter must be a string of a :term:`valid file
         name` and must not conflict with an existing file (or directory)
         in the given remote directory. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         The directory parameter must be a :term:`path-like object` that
@@ -175,7 +175,7 @@ class Client:
         :param path directory: The given remote directory where to create the file.
         :param int timeout: How many milliseconds to wait before giving up
         :raises ValueError: if directory is not an absolute path.
-        :raises InvalidFileName: description.
+        :raises FileNameError: description.
         :raises NotADirectoryError: if the remote directory doesn't exist.
         :raises FileExistsError: description.
         :raises TimeoutError: if timeout was reached
@@ -208,7 +208,7 @@ class Client:
         elif response_type == Response.REFUSED:
             reason_type = response[1]
             if reason_type == Reason.INVALID_FILE_NAME:
-                raise InvalidFileName
+                raise FileNameError
             elif reason_type == Reason.NOT_A_DIRECTORY:
                 raise NotADirectoryError
             elif reason_type == Reason.FILE_ALREADY_EXISTS:
@@ -227,7 +227,7 @@ class Client:
         The name parameter must be a string of a :term:`valid file
         name` and must not conflict with an existing file (or directory)
         in the given remote directory. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         The directory parameter must be a :term:`path-like object` that
@@ -244,7 +244,7 @@ class Client:
         :param path directory: The given remote directory where to create the file.
         :param int timeout: How many milliseconds to wait before giving up
         :raises ValueError: if directory is not an absolute path.
-        :raises InvalidFileName: description.
+        :raises FileNameError: description.
         :raises NotADirectoryError: if the remote directory doesn't exist.
         :raises FileExistsError: description.
         :raises TimeoutError: if timeout was reached
@@ -275,7 +275,7 @@ class Client:
         elif response_type == Response.REFUSED:
             reason_type = response[1]
             if reason_type == Reason.INVALID_FILE_NAME:
-                raise InvalidFileName
+                raise FileNameError
             elif reason_type == Reason.NOT_A_DIRECTORY:
                 raise NotADirectoryError
             elif reason_type == Reason.FILE_ALREADY_EXISTS:
@@ -312,7 +312,7 @@ class Client:
         with an existing file (or directory) in the destination
         directory. By default, it reads the name from the source to
         leave it unchanged. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         Additionally, you can adjust the chunk size value which defines
@@ -357,7 +357,7 @@ class Client:
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises InvalidFileName:     If the source file doesn't have a valid name.
+        :raises FileNameError:     If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -419,9 +419,9 @@ class Client:
         except ValueError:
             # if chunk size is incorrect
             raise ValueError
-        except InvalidFileName:
+        except FileNameError:
             # if file name is invalid
-            raise InvalidFileName
+            raise FileNameError
         except Exception:
             raise NotImplementedError
 
@@ -452,7 +452,7 @@ class Client:
         conflict with an existing directory (or file) in the destination
         directory. By default, it reads the name from the source to
         leave it unchanged. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         Additionally, you can adjust the chunk size value which defines
@@ -497,7 +497,7 @@ class Client:
         :raises SourceNotFound:      If the source directory doesn't exist or isn't a directory.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source directory conflicts with an existing file or directory.
-        :raises InvalidFileName:     If the source directory doesn't have a valid name.
+        :raises FileNameError:     If the source directory doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -594,7 +594,7 @@ class Client:
         conflict with an existing file (or directory) in the destination
         directory. By default, it reads the name from the source to
         leave it unchanged. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         Additionally, you can adjust the chunk size value which defines
@@ -640,7 +640,7 @@ class Client:
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises InvalidFileName:     If the source file doesn't have a valid name.
+        :raises FileNameError:     If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -720,7 +720,7 @@ class Client:
         conflict with an existing directory (or file) in the destination
         directory. By default, it reads the name from the source to
         leave it unchanged. If the name isn't valid, a
-        :py:exc:`InvalidFileName` is raised and if the file is
+        :py:exc:`FileNameError` is raised and if the file is
         conflicting, a :py:exc:`FileExistsError` exception is raised.
 
         Additionally, you can adjust the chunk size value which defines
@@ -766,7 +766,7 @@ class Client:
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises InvalidFileName:     If the source file doesn't have a valid name.
+        :raises FileNameError:     If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -844,7 +844,7 @@ class Client:
         exception is raised. Other exceptions are UnexpectedError,
         BadRequestError, UnknownError and CorruptedResponse.
 
-        Excetio might be triggered bythe process_chunk callback function.
+        Exceptions might be raised by the process_chunk callback function.
         """
 
         # open source file and read its size
@@ -908,7 +908,7 @@ class Client:
             if reason_type == Reason.INCORRECT_CHUNK_SIZE:
                 raise ValueError("Chunk size is invalid")
             elif reason_type == Reason.INVALID_FILE_NAME:
-                raise InvalidFileName
+                raise FileNameError
             else:
                 raise CorruptedResponse("Invalid reason type in error response")
 

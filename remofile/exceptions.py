@@ -27,22 +27,6 @@ class DestinationNotFound(RemofileException):
 
     pass
 
-class InvalidFileName(RemofileException):
-    """ Brief description.
-
-    Long description.
-    """
-
-    pass
-
-class FileAlreadyExists(RemofileException):
-    """ Brief description.
-
-    Long description.
-    """
-
-    pass
-
 class UnexpectedError(RemofileException):
     """ This exception is raised because.
 
@@ -107,3 +91,11 @@ class CorruptedResponse(RemofileException):
 
         self.message = message
         self.error = error
+
+class FileNameError(OSError):
+    """ Brief description.
+
+    Long description.
+    """
+
+    pass

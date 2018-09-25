@@ -224,7 +224,7 @@ def create_file(name, directory, update, timeout):
     except ValueError:
         print("Unable to create file in '{0}' directory; it must be an absolute path.".format(directory))
         exit(1)
-    except InvalidFileName:
+    except FileNameError:
         print("Unable to create file with name '{0}'; it must be a valid file name.".format(name))
         exit(1)
     except NotADirectoryError:
@@ -276,7 +276,7 @@ def make_directory(name, directory, update, timeout):
     except ValueError:
         print("Unable to create folder in '{0}' directory; it must be an absolute path.".format(directory))
         exit(1)
-    except InvalidFileName:
+    except FileNameError:
         print("Unable to create folder with name '{0}'; it must be a valid file name.".format(name))
         exit(1)
     except NotADirectoryError:
@@ -375,7 +375,7 @@ def upload_files(source, destination, recursive, progress, timeout):
         except FileExistsError:
             print("Unable to upload file '{0}'; it's conflicting with an existing file.".format(path))
             exit(1)
-        except InvalidFileName:
+        except FileNameError:
             raise NotImplementedError
         except TimeoutError:
             print(TIMEOUT_ERROR_MESSAGE)
@@ -399,7 +399,7 @@ def upload_files(source, destination, recursive, progress, timeout):
         except FileExistsError:
             print("Unable to upload folder '{0}'; it's conflicting with an existing file.".format(path))
             exit(1)
-        except InvalidFileName:
+        except FileNameError:
             raise NotImplementedError
         except TimeoutError:
             print(TIMEOUT_ERROR_MESSAGE)
@@ -492,7 +492,7 @@ def download_files(source, destination, recursive, progress, timeout):
         #except FileExistsError:
             #print("Unable to upload file '{0}'; it's conflicting with an existing file.".format(path))
             #exit(1)
-        #except InvalidFileName:
+        #except FileNameError:
             #raise NotImplementedError
         #except TimeoutError:
             #print(TIMEOUT_ERROR_MESSAGE)
@@ -519,7 +519,7 @@ def download_files(source, destination, recursive, progress, timeout):
         #except FileExistsError:
             #print("Unable to upload folder '{0}'; it's conflicting with an existing file.".format(path))
             #exit(1)
-        #except InvalidFileName:
+        #except FileNameError:
             #raise NotImplementedError
         #except TimeoutError:
             #print(TIMEOUT_ERROR_MESSAGE)
