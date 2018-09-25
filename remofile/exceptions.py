@@ -93,9 +93,12 @@ class CorruptedResponse(RemofileException):
         self.error = error
 
 class FileNameError(OSError):
-    """ Brief description.
+    """ File name is invalid.
 
-    Long description.
+    This exception is raised when the file name is incorrect as stated by the
+    Remofile protcol.
+
+    Foobar.
     """
 
     pass

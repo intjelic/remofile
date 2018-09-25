@@ -509,7 +509,7 @@ Long description.
     Server returns the actual (optimal?) chunk size to be used.
     Long description.
 
-    response = (Response.ACCPETED, Reason.TRANSFER_ACCEPTED, chunk_size)
+    response = (Response.ACCEPTED, Reason.TRANSFER_ACCEPTED, chunk_size)
 
 
 Delete file request

@@ -689,5 +689,3 @@ cli.add_command(stop_server)
 
 cli.add_command(generate_token)
 cli.add_command(generate_keys)
-
-
