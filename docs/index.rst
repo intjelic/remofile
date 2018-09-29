@@ -4,14 +4,11 @@ Remofile : Alternative to FTP
 .. toctree::
    :hidden:
 
-   user-guide
-
-   software-design
-
+   getting-started
    api-reference
-   commands-list
+   cli-reference
    protocol-specifications
-
+   design-decisions
    roadmap
 
    old-commands-list
@@ -41,15 +38,15 @@ transfer files tools.
 .. note::
 
     Remofile doesn't claim to be better than FTP but rather offers a
-    better solution for developpers in most situations as it's
+    better solution for developers in most situations as it's
     purposely designed for easier use and integration, At the end, it
     does the same work but with a saner and more maintainable code on
     the developer side.
 
-    See this :doc:`document </software-design>` for more details.
+    See this :doc:`document </design-decisions>` for more details.
 
 It's also properly documented and heavily tested. Check out the
-:doc:`user guide </user-guide>` to get you started with using Remofile.
+:doc:`user guide </getting-started>` to get you started with using Remofile.
 
 Remofile is... quick
 ^^^^^^^^^^^^^^^^^^^^
@@ -66,7 +63,7 @@ network on port 6768 with the token `qRkVWJcFRqi7rsNMbagaDd`.
 .. note::
 
     There are other ways to start a server and different options. They
-    are all covered in the :doc:`documentation </user-guide>`.
+    are all covered in the :doc:`documentation </getting-started>`.
 
 Remofile is... easy-to-use
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -139,7 +136,7 @@ highly scriptable. See the bunch of commands availabe akin to `ls`,
     remofile remove /foo
 
 The command-line interface might feel odds for now but it will likely
-change later to feel more natural. See the :doc:`commands list </commands-list>`
+change later to feel more natural. See the :doc:`commands list </cli-reference>`
 learn how to use the command-line interface.
 
 Remofile is... embeddable
