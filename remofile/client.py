@@ -793,10 +793,14 @@ class Client:
         if str(source) != source.root:
             try:
                 files = self.list_files(source.parent, timeout)
+            except NotADirectoryError:
+                raise SourceNotFound("Source directory could not be found")
+            # except TimeoutError: # catch and treat relevant exceptions
+            #     raise TimeoutError
             except Exception:
-                raise NotImplementedError # catch and treat relevant exceptions
+                raise NotImplementedError
 
-            if source.name not in files or files[source.name][1] == True:
+            if source.name not in files or files[source.name][0] == True:
                 raise SourceNotFound("Source directory could not be found")
 
         # check if the destination directory exists and raises

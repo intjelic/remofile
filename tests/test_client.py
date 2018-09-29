@@ -341,18 +341,19 @@ class TestClient(unittest.TestCase):
 
         Incorrect variants of invalid parameters.
 
-            - test uploading a file with source is a relative path
-            - test uploading a file with source is an absolute path
-            - test uploading a file with changing its name
-            - test uploading a file with a source file that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
-            - test uploading a file with destination being a relative path
-            - test uploading a file with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exist but is not a directory)
-            - test uploading a file with a name that conflicts with an existing file in the destination directory
-            - test uploading a file with an invalid chunk size
-            - test uploading a file with a custom process chunk callback
-            - test uploading a file with a custom process chunk callback that interupts the upload
-            - test uploading a file with chunk size greater than the file size being uploaded
-            - test uploading a file again to ensure the previous operations didn't corrupt the server state
+          - test uploading a file with source is a relative path
+          - test uploading a file with source is an absolute path
+          - test uploading a file with changing its name
+          - test uploading a file with source being a file that doesn't exist
+          - test uploading a file with source being a directory (and not a file)
+          - test uploading a file with destination being a relative path
+          - test uploading a file with destination being a directory that doesn't exist
+          - test uploading a file with destination being a file (and not a directory)
+          - test uploading a file with a name that conflicts with an existing file in the destination directory
+          - test uploading a file with an invalid chunk size
+          - test uploading a file with a custom process chunk callback
+          - test uploading a file with a custom process chunk callback that interupts the upload
+          - test uploading a file with chunk size greater than the file size being uploaded
 
         It finishes with uploading the file successfully (using a set of
         valid parameters) and test if the file has effectively been
@@ -427,27 +428,29 @@ class TestClient(unittest.TestCase):
         assert_file_uploaded(source, destination, 'bar.bin')
         delete_uploaded_file(source, destination, 'bar.bin')
 
-        # test uploading a file with a source file that doesn't exist
-        # (todo: make 2 versions of it, one with source exists but is
-        # not a file)
+        # test uploading a file with source being a file that doesn't
+        # exist
         with self.assertRaises(SourceNotFound):
             client.upload_file('foo.txt', destination, name, chunk_size, process_chunk)
 
-        assert_file_not_uploaded(source, destination, 'foo.txt')
+        # test uploading a file with source being a directory (and not a
+        # file)
+        with self.assertRaises(SourceNotFound):
+            client.upload_file('bar', destination, name, chunk_size, process_chunk)
 
         # test uploading a file with destination being a relative path
         with self.assertRaises(ValueError):
             client.upload_file(source, 'bar', name, chunk_size, process_chunk)
 
-        assert_file_not_uploaded(source, '/bar', name)
-
-        # test uploading a file with a destination directory that
-        # doesn't exist (todo: make 2 versions of it, one with
-        # destination exist but is not a directory)
+        # test uploading a file with destination being a directory that
+        # doesn't exist
         with self.assertRaises(DestinationNotFound):
             client.upload_file(source, '/foo', name, chunk_size, process_chunk)
 
-        assert_file_not_uploaded(source, '/foo', name)
+        # test uploading a file with destination being a file (and not a
+        # directory)
+        with self.assertRaises(DestinationNotFound):
+            client.upload_file(source, '/qaz/foo.bin', name, chunk_size, process_chunk)
 
         # test uploading a file with a name that conflicts with an
         # existing file in the destination directory
@@ -527,6 +530,7 @@ class TestClient(unittest.TestCase):
 
           $(remote_dir)/foo/
                         bar/
+                        qaz.bin
 
         Then it attempts to upload the local 'foo/' directory to the
         remote 'bar/' directory using the upload_directory() method. It
@@ -541,8 +545,11 @@ class TestClient(unittest.TestCase):
           - test uploading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a directory)
           - test uploading a directory with destination being a relative path
           - test uploading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exists but is not a directory)
+          - [TODO] test uploading a directory with a name that conflicts with an xisting file in the destination directory
           - test uploading a directory with an invalid chunk size
-          - test uploading the directory again to ensure the previous operations didn't correup the server state
+          - [TODO] test uploading a directory with a custom process chunk callback
+          - [TODO] test uploading a directory with a custom process chunk callback that interupts the upload
+          - [TODO] test uploading a directory with chunk size greater than the file size being uploaded
 
         It finishes with uploading the directory successfully (using a
         set of valid parameters) and test if the directory has
@@ -561,6 +568,7 @@ class TestClient(unittest.TestCase):
         # create remote working directory
         self.create_remote_directory('/', 'foo')
         self.create_remote_directory('/', 'bar')
+        self.create_remote_file('/', 'qaz.bin', 42)
 
         # prepare common variables
         source = 'foo'
@@ -627,22 +635,30 @@ class TestClient(unittest.TestCase):
 
         delete_uploaded_directory(source, destination, 'qux')
 
-        # test uploading a directory with a source directory that
-        # doesn't exist (todo: make 2 versions of it, one with source
-        # exists but is not a directory)
+        # test uploading a directory with source being a directory that
+        # doesn't exist
         with self.assertRaises(SourceNotFound):
             client.upload_directory('qaz', destination, name, chunk_size, process_chunk)
+
+        # test uploading a directory with source being a file (and not a
+        # directory)
+        with self.assertRaises(SourceNotFound):
+            client.upload_directory('foo/bar.bin', destination, name, chunk_size, process_chunk)
 
         # test uploading a directory with destination being a relative
         # path
         with self.assertRaises(ValueError):
             client.upload_directory(source, 'bar', name, chunk_size, process_chunk)
 
-        # test uploading a directory with a destination directory that
-        # doesn't exist (todo: make 2 versions of it, one with
-        # destination exists but is not a directory)
+        # test uploading a directory with destination being a directory
+        # that doesn't exist
         with self.assertRaises(DestinationNotFound):
             client.upload_directory(source, '/qaz', name, chunk_size, process_chunk)
+
+        # test uploading a directory with destination being a file (and
+        # not a directory)
+        with self.assertRaises(DestinationNotFound):
+            client.upload_directory(source, '/qaz.bin', name, chunk_size, process_chunk)
 
         # test uploading a directory with an invalid chunk size
         with self.assertRaises(ValueError):
@@ -678,13 +694,15 @@ class TestClient(unittest.TestCase):
           - test downloading a file with destination is an absolute path
           - test downloading a file with changing its name
           - test downloading a file with source being a relative path
-          - test downloading a file with a source file that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
-          - test downloading a file with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exist but is not a directory)
+          - test downloading a file with source being a file that doens't exist
+          - test downloading a file with source being a directory (and not a file)
+          - test downloading a file with destination being a directory that doesn't exist
+          - test downloading a file with destination being a file (and not a directory)
           - test downloading a file with a name that conflicts with an existing file in the destination directory
-          - test downloading a file with an invalid chunk size
-          - test downloading a file with a custom process chunk callback
-          - test downloading a file with a custom process chunk callback that interupts the upload
-          - test downloading a file with chunk size greater than the file size being uploaded
+          - [TODO] test downloading a file with an invalid chunk size
+          - [TODO] test downloading a file with a custom process chunk callback
+          - [TODO] test downloading a file with a custom process chunk callback that interupts the upload
+          - [TODO] test downloading a file with chunk size greater than the file size being uploaded
 
         It finishes with downloading the file successfully (using a set
         of valid parameters) and test if the file has effectively been
@@ -766,21 +784,25 @@ class TestClient(unittest.TestCase):
 
         assert_file_not_downloaded('bar/foo.bin', destination, name)
 
-        # test downloading a file with a source file that doesn't exist
-        # (todo: make 2 versions of it, one with source exists but is
-        # not a file)
+        # test downloading a file with source being a file that doens't
+        # exist
         with self.assertRaises(SourceNotFound):
             client.download_file('/foo.bin', destination, name, chunk_size, process_chunk)
 
-        assert_file_not_downloaded('/foo.bin', destination, name)
+        # test downloading a file with source being a directory (and not
+        # a file)
+        with self.assertRaises(SourceNotFound):
+            client.download_file('/bar', destination, name, chunk_size, process_chunk)
 
-        # test downloading a file with a destination directory that
-        # doesn't exist (todo: make 2 versions of it, one with
-        # destination exist but is not a directory)
+        # test downloading a file with destination being a directory
+        # that doesn't exist
         with self.assertRaises(DestinationNotFound):
             client.download_file(source, 'foo', name, chunk_size, process_chunk)
 
-        assert_file_not_downloaded(source, 'foo', name)
+        # test downloading a file with destination being a file (and not
+        # a directory)
+        with self.assertRaises(DestinationNotFound):
+            client.download_file(source, 'bar/foo.bin', name, chunk_size, process_chunk)
 
         # test downloading a file with a name that conflicts with an
         # existing file in the destination directory
@@ -816,6 +838,7 @@ class TestClient(unittest.TestCase):
 
           $(local_dir)/bar/
                        qaz/foo
+                       foo.bin
 
           $(remote_dir)/foo/bar.bin
                             qaz/xyz.img
@@ -832,6 +855,7 @@ class TestClient(unittest.TestCase):
           - test downloading a directory with changing its name
           - test downloading a directory with source being a relative path
           - test downloading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
+          - [CHECK-ME] is anything missing here ?
           - test downloading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with  destination exist but is not a directory)
           - test downloading a directory with a name that conflicts with an existing file in the destination directory
           - test downloading a directory with an invalid chunk size
@@ -849,6 +873,7 @@ class TestClient(unittest.TestCase):
         self.create_local_directory('/', 'bar')
         self.create_local_directory('/', 'qaz')
         self.create_local_directory('/qaz', 'foo')
+        self.create_local_file('/', 'foo.bin', 42)
 
         # create remote working tree of files
         self.create_remote_directory('/', 'foo')
@@ -930,19 +955,25 @@ class TestClient(unittest.TestCase):
 
         assert_directory_not_downloaded(source, destination, name)
 
-        # test downloading a directory with a source directory that doesn't exist
-        # (todo: make 2 versions of it, one with source exists but is
-        # not a file)
+        # test downloading a directory with source being a directory
+        # that doesn't exist
         with self.assertRaises(SourceNotFound):
             client.download_directory('/bar', destination, name, chunk_size, process_chunk)
+        #
+        # # test downloading a directory with source being a file (and not
+        # # a directory)
+        # with self.assertRaises(SourceNotFound):
+        #     client.download_directory('/foo/bar.bin', destination, name, chunk_size, process_chunk)
 
-        # test downloading a directory with a destination directory that
-        # doesn't exist (todo: make 2 versions of it, one with
-        # destination exist but is not a directory)
+        # test downloading a directory with destination being a
+        # directory that doesn't exist
         with self.assertRaises(DestinationNotFound):
             client.download_directory(source, 'foo', name, chunk_size, process_chunk)
 
-        assert_directory_not_downloaded(source, 'foo', name)
+        # test downloading a directory with destination being a file
+        # (and not a directory)
+        with self.assertRaises(DestinationNotFound):
+            client.download_directory(source, 'foo.bin', name, chunk_size, process_chunk)
 
         # test downloading a directory with a name that conflicts with an
         # existing file in the destination directory
