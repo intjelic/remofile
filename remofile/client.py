@@ -102,11 +102,11 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param path directory: The given remote directory to list files for.
-        :param int timeout: How many milliseconds to wait before giving up
-        :raises ValueError: if directory is not an absolute path.
-        :raises NotADirectoryError: if the remote directory doesn't exist.
-        :raises TimeoutError: if timeout was reached
+        :param path directory:      The given remote directory to list files for.
+        :param int timeout:         How many milliseconds to wait before giving up
+        :raises ValueError:         If the directory is not an absolute path.
+        :raises NotADirectoryError: If the directory doesn't exist.
+        :raises TimeoutError:       If it takes more than the timeout value to receive a response.
         :return: A dictionnary associating file name with their metadata.
         :rtype: dict
         """
@@ -141,7 +141,7 @@ class Client:
             return files_list
         elif response_type == Response.REFUSED:
             if response[1] == Reason.NOT_A_DIRECTORY:
-                raise NotADirectoryError # TODO: decide about exception and raise proper exception
+                raise NotADirectoryError
             else:
                 raise NotImplementedError
         elif response_type == Response.ERROR:
@@ -171,14 +171,14 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param str name: The name of the file to create.
-        :param path directory: The given remote directory where to create the file.
-        :param int timeout: How many milliseconds to wait before giving up
-        :raises ValueError: if directory is not an absolute path.
-        :raises FileNameError: description.
-        :raises NotADirectoryError: if the remote directory doesn't exist.
-        :raises FileExistsError: description.
-        :raises TimeoutError: if timeout was reached
+        :param str name:            The name of the file to create.
+        :param path directory:      The given remote directory where to create the file.
+        :param int timeout:         How many milliseconds to wait before giving up
+        :raises ValueError:         If the directory is not an absolute path.
+        :raises NotADirectoryError: If the directory doesn't exist.
+        :raises FileNameError:      If the name of the file isn't valid.
+        :raises FileExistsError:    If the name conflicts with the name of an existing file or directory.
+        :raises TimeoutError:       If it takes more than the timeout value to receive a response.
         """
 
         # ensure we work with a posix path
@@ -240,14 +240,14 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param str name: The name of the file to create.
-        :param path directory: The given remote directory where to create the file.
-        :param int timeout: How many milliseconds to wait before giving up
-        :raises ValueError: if directory is not an absolute path.
-        :raises FileNameError: description.
-        :raises NotADirectoryError: if the remote directory doesn't exist.
-        :raises FileExistsError: description.
-        :raises TimeoutError: if timeout was reached
+        :param str name:            The name of the file to create.
+        :param path directory:      The given remote directory where to create the file.
+        :param int timeout:         How many milliseconds to wait before giving up
+        :raises ValueError:         If the directory is not an absolute path.
+        :raises NotADirectoryError: If the directory doesn't exist.
+        :raises FileNameError:      If the name isn't valid.
+        :raises FileExistsError:    If the name conflicts with the name of an existing file or directory.
+        :raises TimeoutError:       If it takes more than the timeout value to receive a response.
         """
 
         # ensure we work with a posix path
@@ -347,17 +347,17 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param source:        Foobar.
-        :param destination:   Foobar.
-        :param name:          Foobar.
+        :param source:        The (local) source file to upload.
+        :param destination:   The (remote) destination directory where to upload the file.
+        :param name:          The name of the file after it's uploaded.
         :param chunk_size:    Foobar.
         :param process_chunk: Foobar.
-        :param timeout:       Foobar.
+        :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the destination directory isn't an absolute path.
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises FileNameError:     If the source file doesn't have a valid name.
+        :raises FileNameError:       If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -487,17 +487,17 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param source:        Foobar.
-        :param destination:   Foobar.
-        :param name:          Foobar.
+        :param source:        The (local) source directory to upload.
+        :param destination:   The (remote) destination directory where to upload the directory.
+        :param name:          The name of the directory after it's uploaded.
         :param chunk_size:    Foobar.
         :param process_chunk: Foobar.
-        :param timeout:       Foobar.
+        :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the destination directory isn't an absolute path.
         :raises SourceNotFound:      If the source directory doesn't exist or isn't a directory.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source directory conflicts with an existing file or directory.
-        :raises FileNameError:     If the source directory doesn't have a valid name.
+        :raises FileNameError:       If the source directory doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -630,17 +630,17 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param source:        Foobar.
-        :param destination:   Foobar.
-        :param name:          Foobar.
+        :param source:        The (remote) source file to download.
+        :param destination:   The (local) destination directory where to download the file.
+        :param name:          The name of the file after it's downloaded.
         :param chunk_size:    Foobar.
         :param process_chunk: Foobar.
-        :param timeout:       Foobar.
+        :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the source directory isn't an absolute path.
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises FileNameError:     If the source file doesn't have a valid name.
+        :raises FileNameError:       If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -756,17 +756,17 @@ class Client:
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
 
-        :param source:        Foobar.
-        :param destination:   Foobar.
-        :param name:          Foobar.
+        :param source:        The (remote) source directory to download.
+        :param destination:   The (local) destination directory where to download the directory.
+        :param name:          The name of the directory after it's downloaded.
         :param chunk_size:    Foobar.
         :param process_chunk: Foobar.
-        :param timeout:       Foobar.
+        :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the source directory isn't an absolute path.
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
-        :raises FileNameError:     If the source file doesn't have a valid name.
+        :raises FileNameError:       If the source file doesn't have a valid name.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
