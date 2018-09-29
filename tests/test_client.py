@@ -25,7 +25,20 @@ class TestClient(unittest.TestCase):
     """ Test the client class.
 
     It consists of testing its methods that implement all native file
-    operations.
+    operations one by one.
+
+      - test_list_files()
+      - test_create_file()
+      - test_make_directory()
+      - test_upload_file()
+      - test_upload_directory()
+      - test_download_file()
+      - test_download_directory()
+      - test_remove_directory()
+
+    A server is systematically started in a child process with a local
+    and a remote directory. The client does file operation and checks if
+    the local and remote directories are in the expected state.
     """
 
     def setUp(self):
@@ -130,9 +143,9 @@ class TestClient(unittest.TestCase):
     def test_list_files(self):
         """ Test the list files method.
 
-        It creates 'foo.bin' file and 'bar/' directory in the root
-        directory and tests before and after if the correct dictionnary
-        is returned.
+        It creates 'foo.bin' file and 'bar/' directory in the remote
+        directory and then it tests, before and after, if the correct
+        dictionnary is returned.
 
         It ends with testing listing files with a relative path (which
         is not permitted) and listing files of a non-existing directory.
@@ -169,16 +182,27 @@ class TestClient(unittest.TestCase):
     def test_create_file(self):
         """ Test the create file method.
 
-        It starts with creating a temporary working tree of files.
+        It starts with creating a temporary working tree of files in the
+        remote directory as follow.
 
-            /foo.bin
-            /bar/qaz.txt
+          /foo.bin
+           bar/qaz.txt
 
-        Then, it attempts to create a file 'foo.bin' in 'bar' directory
-        with invalid parameters to test each possible errors.
+        Then, it attempts to create a file 'foo.bin' in the 'bar'
+        directory using the create_file() method. It tries it with
+        different variants of invalid set of parameters to check if
+        errors are correctly triggered.
 
-        It finishes with creating the file successfully and test if it
-        has effectively been created.
+        Incorrect variants of invalid parameters.
+
+          - test creating a file with invalid names
+          - test creating a file with a conflicting name
+          - test creating a file with a relative directory
+          - test creating a file with a non-existing directory
+
+        It finishes with creating the file successfully (using a set of
+        valid parameters) and test if the file has effectively been
+        created.
         """
 
         # create client instance
@@ -227,19 +251,30 @@ class TestClient(unittest.TestCase):
         self.assertTrue(created_file.exists())
         self.assertTrue(created_file.is_file())
 
-    def test_make_directories(self):
+    def test_make_directory(self):
         """ Test the make directory method.
 
-        It starts with creating a temporary working tree of files.
+        It starts with creating a temporary working tree of files in the
+        remote directory as follow.
 
-            /foo/
-            /bar/qaz/
+          /foo/
+           bar/qaz/
 
-        Then, it attempts to create a directory 'foo/' in 'bar/'
-        directory with invalid parameters to test each possible errors.
+        Then, it attempts to create a directory 'foo/' in the 'bar/'
+        directory using the make_directory() method. It tries it with
+        different variants of invalid set of parameters to check if
+        errors are correctly triggerd.
 
-        It finishes with creating the directory successfully and test
-        if it has effectively been created.
+        Incorrect variants of invalid parameters.
+
+          - test making a directory with invalid names
+          - test making a directory with a conflicting name
+          - test making a directory with a relative directory
+          - test making a directory with a non-existing directory
+
+        It finishes with creating the directory successfully (using a
+        set of valid parameters) and test if the directory has
+        effectively been created.
         """
 
         # create client instance
@@ -291,22 +326,37 @@ class TestClient(unittest.TestCase):
     def test_upload_file(self):
         """ Test the upload file method.
 
-        It starts with creating a local working directory and remote
-        working directory as follow.
+        It starts with creating temporary working trees of files in both
+        the local and remote directories, as follow.
 
-        Local working directory.
+          $(local_dir)/foo.bin
 
-            foo.bin
-
-        Remote working directory.
-
-            bar/
-            qaz/foo.bin
+          $(remote_dir)/bar/
+                        qaz/foo.bin
 
         Then it attempts to upload the local 'foo.bin' file to the
-        remote 'bar/' directory. It does it by testing different foobar.
+        remote 'bar/' directory using the upload_file() method. It tries
+        it with different variants of invalid set of parameters to check
+        if errors are corectly triggered.
 
-        It finishes with barfoo.
+        Incorrect variants of invalid parameters.
+
+            - test uploading a file with source is a relative path
+            - test uploading a file with source is an absolute path
+            - test uploading a file with changing its name
+            - test uploading a file with a source file that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
+            - test uploading a file with destination being a relative path
+            - test uploading a file with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exist but is not a directory)
+            - test uploading a file with a name that conflicts with an existing file in the destination directory
+            - test uploading a file with an invalid chunk size
+            - test uploading a file with a custom process chunk callback
+            - test uploading a file with a custom process chunk callback that interupts the upload
+            - test uploading a file with chunk size greater than the file size being uploaded
+            - test uploading a file again to ensure the previous operations didn't corrupt the server state
+
+        It finishes with uploading the file successfully (using a set of
+        valid parameters) and test if the file has effectively been
+        uploaded.
         """
 
         # create client instance
@@ -469,26 +519,34 @@ class TestClient(unittest.TestCase):
     def test_upload_directory(self):
         """ Test the upload directory method.
 
-        It starts with creating a local working directory and remote
-        working directory as follow.
+        It starts with creating temporary working trees of files in both
+        the local and remote directories, as follow.
 
-        Local working directory.
+          $(local_dir)/foo/bar.bin
+                           qaz/xyz.img
 
-            foo/
-                bar.bin
-                qaz/xyz.img
+          $(remote_dir)/foo/
+                        bar/
 
-        Remote working directory.
+        Then it attempts to upload the local 'foo/' directory to the
+        remote 'bar/' directory using the upload_directory() method. It
+        tries it with different variants of invalid set of parameters
+        to check if errors are corectly triggered.
 
-            foo/
-            bar/
+        Incorrect variants of invalid parameters.
 
-        Then, it attempts to upload the 'foo/' local directory to the
-        'bar/' remote directory by trying different erroueonous versions.
+          - test uploading a directory with source is a relative path
+          - test uploading a directory with source is an absolute path
+          - test uploading a directory with changing its name
+          - test uploading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a directory)
+          - test uploading a directory with destination being a relative path
+          - test uploading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exists but is not a directory)
+          - test uploading a directory with an invalid chunk size
+          - test uploading the directory again to ensure the previous operations didn't correup the server state
 
-        It finishes with foobar.
-
-        To be written.
+        It finishes with uploading the directory successfully (using a
+        set of valid parameters) and test if the directory has
+        effectively been uploaded.
         """
 
         # create client instance
@@ -548,7 +606,7 @@ class TestClient(unittest.TestCase):
             uploaded_directory_path = self.remote_directory_path / destination[1:] / name
             shutil.rmtree(uploaded_directory_path)
 
-        # test uploading a directory with source is an relative path
+        # test uploading a directory with source is a relative path
         assert_directory_not_uploaded(source, destination, name)
         client.upload_directory(self.local_directory_path / source, destination, name, chunk_size, process_chunk)
         assert_directory_uploaded(source, destination, name)
@@ -601,22 +659,36 @@ class TestClient(unittest.TestCase):
     def test_download_file(self):
         """ Test the download file method.
 
-        It starts with creating a local working directory and remote
-        working directory as follow.
+        It starts with creating temporary working trees of files in both
+        the local and remote directories, as follow.
 
-        Local working directory.
+          $(local_dir)/bar/foo.bin
+                       qaz/
 
-            /bar/foo.bin
-             qaz/
-
-        Remote working directory.
-
-            /bar/foo.bin
+          $(remote_dir)/bar/foo.bin
 
         Then it attempts to download the remote 'foo.bin' file to the
-        local 'qaz/' directory. It does it by testing different foobar.
+        local 'qaz/' directory using the download_file() method. It
+        tries it with different variants of invalid set of parameters to
+        check if errors are corectly triggered.
 
-        It finishes with barfoo.
+        Incorrect variants of invalid parameters.
+
+          - test downloading a file with destination is a relative path
+          - test downloading a file with destination is an absolute path
+          - test downloading a file with changing its name
+          - test downloading a file with source being a relative path
+          - test downloading a file with a source file that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
+          - test downloading a file with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exist but is not a directory)
+          - test downloading a file with a name that conflicts with an existing file in the destination directory
+          - test downloading a file with an invalid chunk size
+          - test downloading a file with a custom process chunk callback
+          - test downloading a file with a custom process chunk callback that interupts the upload
+          - test downloading a file with chunk size greater than the file size being uploaded
+
+        It finishes with downloading the file successfully (using a set
+        of valid parameters) and test if the file has effectively been
+        downloaded.
         """
 
         # create client instance
@@ -739,21 +811,35 @@ class TestClient(unittest.TestCase):
     def test_download_directory(self):
         """ Test the download directory method.
 
-        Local working directory.
+        It starts with creating temporary working trees of files in both
+        the local and remote directories, as follow.
 
-            bar/
-            qaz/foo
+          $(local_dir)/bar/
+                       qaz/foo
 
-        Remote working directory.
+          $(remote_dir)/foo/bar.bin
+                            qaz/xyz.img
 
-            foo/
-                bar.bin
-                qaz/xyz.img
+        Then it attempts to download the remote 'foo/' directory to the
+        local 'bar/' directory using the download_directory() method. It
+        tries it with different variants of invalid set of parameters to
+        check if errors are corectly triggered.
 
-        Then, it attempts to download the 'foo/' remote directory to the
-        'bar/' remote directory by trying different erroueonous versions.
+        Incorrect variants of invalid parameters.
 
-        To be written.
+          - test downloading a directory with destination is a relative path
+          - test downloading a directory with destination is an absolute path
+          - test downloading a directory with changing its name
+          - test downloading a directory with source being a relative path
+          - test downloading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
+          - test downloading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with  destination exist but is not a directory)
+          - test downloading a directory with a name that conflicts with an existing file in the destination directory
+          - test downloading a directory with an invalid chunk size
+          - test downloading a directory again to ensure the previous operations didn't corrupt the server state
+
+        It finishes with downloading the directory successfully (using
+        a set of valid parameters) and test if the directory has
+        effectively been downloaded.
         """
 
         # create client instance
@@ -878,10 +964,10 @@ class TestClient(unittest.TestCase):
         assert_directory_downloaded(source, destination, name)
         delete_downloaded_directory(source, destination, name)
 
-    #def test_remove_file(self):
-        #""" Test the remove file method.
+    def test_remove_file(self):
+        """ Test the remove file method.
 
-        #To be written.
-        #"""
+        To be written.
+        """
 
-        ##pass
+        pass

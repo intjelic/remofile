@@ -401,7 +401,7 @@ class TestProtocol(unittest.TestCase):
           - Send a valid request, but send invalid chunks later
           - Send a valid request, but cancel transfer later
 
-        The last step is sending a valid request and send send chunk
+        The last step is sending a valid request and sending sent chunk
         requests until completion of the upload.
 
         It finishes with testing if the uploaded file has effectively
@@ -589,7 +589,7 @@ class TestProtocol(unittest.TestCase):
           - Send a valid request, but send invalid chunks later
           - Send a valid request, but cancel transfer later
 
-        The last step is sending a valid request and send receive chunk
+        The last step is sending a valid request and sending receive chunk
         requests until completion of the upload.
         """
 
