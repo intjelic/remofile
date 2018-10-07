@@ -15,11 +15,11 @@ import unittest
 from click.testing import CliRunner
 from remofile.server import Server
 from remofile.cli import *
-from remofile.token import generate_token
+import remofile.token
 
 HOSTNAME = '127.0.0.1'
 PORT     = 6768
-TOKEN    = generate_token()
+TOKEN    = remofile.token.generate_token()
 
 class TestCLI(unittest.TestCase):
     """ Test the command-line interface.
@@ -561,17 +561,37 @@ class TestCLI(unittest.TestCase):
         pass
 
     def test_generate_token_command(self):
-        """ Test the upload command.
+        """ Test the generate-token command.
 
-        Long description.
+        It tests if the output is 8 characters long as it's expected to
+        be a valid token.
         """
 
-        pass
+        env = self.get_testing_environment()
+
+        runner = CliRunner(env=env)
+        result = runner.invoke(generate_token, [])
+
+        self.assertEqual(len(result.output), 23)
+        self.assertEqual(result.exit_code, 0)
+
+        time.sleep(1) # this is to give enough time to the server process to actually start
 
     def test_generate_keys_command(self):
-        """ Test the upload command.
+        """ Test the generate-keys command.
 
-        Long description.
+        It tests if the output contains the "public key:" and "private
+        key:" strings. Improvement of this test could check the length
+        of the two keys as well as the set of characters.
         """
 
-        pass
+        env = self.get_testing_environment()
+
+        runner = CliRunner(env=env)
+        result = runner.invoke(generate_keys, [])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("public key:",  result.output)
+        self.assertIn("private key:", result.output)
+
+        time.sleep(1) # this is to give enough time to the server process to actually start

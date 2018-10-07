@@ -15,6 +15,7 @@ from remofile.server import FILE_SIZE_LIMIT, MINIMUM_CHUNK_SIZE, MAXIMUM_CHUNK_S
 from remofile.client import Client
 from remofile.exceptions import *
 from remofile.token import generate_token
+from remofile.keys import generate_keys
 from remofile.daemon import Daemon
 
 DEFAULT_TIMEOUT_VALUE = 3600
@@ -662,19 +663,35 @@ def stop_server(pidfile):
 def generate_token():
     """ Generate a token.
 
-    Long description here.
+    This is an utility command that generates a valid token needed to
+    configure both the client and the server.
+
+    Note that by default, the server will generate a token if none was
+    explicitly set.
     """
 
-    pass
+    from remofile.token import generate_token
+    print(generate_token())
 
 @cli.command('generate-keys')
 def generate_keys():
     """ Generate a pair of keys.
 
-    Long description here.
+    This is an utility command that generates a valid pair of keys to
+    encrypt communication with clients.
+
+    The first key is a public key that must be shared across clients
+    connecting to the Remofile server and the second key is the private
+    key that must be kept secret. Both :py:class:`Client` and
+    :py:class:`Server` instances must be configured with their
+    respective keys.
     """
 
-    pass
+    from remofile.keys import generate_keys
+    public_key, private_key = generate_keys()
+
+    print("public key: {0}".format(str(public_key, 'utf-8')))
+    print("private key: {0}".format(str(private_key, 'utf-8')))
 
 cli.add_command(list_files)
 cli.add_command(create_file)
