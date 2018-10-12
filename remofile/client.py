@@ -95,9 +95,10 @@ class Client:
         The directory parameter must be a :term:`path-like object` that
         refers to an **existing** directory in the remote directory for
         which it must list files for. If the directory doesn't exist,
-        the :py:exc:`NotADirectoryError` exception (may change) is
-        raised. It must be an absolute path or a :py:exc:`ValueError`
-        exception is raised.
+        the :py:exc:`FileNotFoundErrror` exception is raised, and if
+        it's not an actual directory, the :py:exc:`NotADirectoryError`
+        exception is raised. It must be an absolute path or a
+        :py:exc:`ValueError` exception is raised.
 
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
@@ -105,7 +106,8 @@ class Client:
         :param path directory:      The given remote directory to list files for.
         :param int timeout:         How many milliseconds to wait before giving up
         :raises ValueError:         If the directory is not an absolute path.
-        :raises NotADirectoryError: If the directory doesn't exist.
+        :raises FileNotFoundError:  If the directory doesn't exist.
+        :raises NotADirectoryError: If the directory is not a directory.
         :raises TimeoutError:       If it takes more than the timeout value to receive a response.
         :return: A dictionnary associating file name with their metadata.
         :rtype: dict
@@ -140,6 +142,8 @@ class Client:
             files_list = response[2]
             return files_list
         elif response_type == Response.REFUSED:
+            if response[1] == Reason.FILE_NOT_FOUND:
+                raise FileNotFoundError
             if response[1] == Reason.NOT_A_DIRECTORY:
                 raise NotADirectoryError
             else:

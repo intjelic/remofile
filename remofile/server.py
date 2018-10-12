@@ -259,7 +259,8 @@ class Server:
         The possible responses are.
 
         * ACCEPTED with FILES_LISTED and the list of files, if the listing was successful
-        * REFUSED with NOT_A_DIRECTORY if the list files directory doesn't exists
+        * REFUSED with FILE_NOT_FOUND if the list files directory doesn't exists
+        * REFUSED with NOT_A_DIRECTORY if the list files directory is not a directory
 
         Other responsed include ERROR with BAD_REQUEST if the request is
         imporperly formatted, or ERROR with UNKNOWN ERROR if any other
@@ -287,12 +288,16 @@ class Server:
         # combine the list directory with the root directory
         directory = self.root_directory / directory
 
-        # if the directory doesn't refer to an actual directory, send
-        # not a directory refused resonse
-        if not directory.exists() or directory.is_file():
+        # return a FILE_NOT_FOUND refused response if list files
+        # directory doesn't exist or NOT_A_DIRECTORY refused reponse if
+        # it's not an actual directory
+        if not directory.exists():
+            response = make_file_not_found_response()
+            self.socket.send_pyobj(response)
+            return
+        elif directory.is_file():
             response = make_not_a_directory_response()
             self.socket.send_pyobj(response)
-
             return
 
         # build the list of files of the given directory, with files

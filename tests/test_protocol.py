@@ -183,15 +183,23 @@ class TestProtocol(unittest.TestCase):
             self.assertEqual(reason_type, Reason.FILES_LISTED)
             self.assertDictEqual(files_list, expected_files_list)
 
-        # test listing files of a non-existing directory
+        # test listing files of a directory that doesn't exist
+        expected_response = (Response.REFUSED, Reason.FILE_NOT_FOUND)
+
+        request = make_list_files_request('/foo')
+        socket.send_pyobj(request)
+
+        response = socket.recv_pyobj()
+        self.assertTupleEqual(response, expected_response)
+
+        # test listing files of a directory that actually is a file
         expected_response = (Response.REFUSED, Reason.NOT_A_DIRECTORY)
 
-        for list_directory in ('/foo', 'foo'):
-            request = make_list_files_request(list_directory)
-            socket.send_pyobj(request)
+        request = make_list_files_request('/foo.bin')
+        socket.send_pyobj(request)
 
-            response = socket.recv_pyobj()
-            self.assertTupleEqual(response, expected_response)
+        response = socket.recv_pyobj()
+        self.assertTupleEqual(response, expected_response)
 
     def test_create_file_request(self):
         """ Test the CREATE_FILE request.

@@ -175,9 +175,13 @@ class TestClient(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.list_files('bar')
 
+        # test listing files of a directory that doesn't exist
+        with self.assertRaises(FileNotFoundError):
+            client.list_files('/foo')
+
         # test listing files of a non-existing directory
         with self.assertRaises(NotADirectoryError):
-            client.list_files('/foo')
+            client.list_files('/foo.bin')
 
     def test_create_file(self):
         """ Test the create file method.
