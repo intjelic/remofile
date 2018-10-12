@@ -215,7 +215,7 @@ class TestProtocol(unittest.TestCase):
         invalid requests.
 
           * Send a bad request
-          * Send the three invalid requests expecting the three variant of refused responses
+          * Send the four invalid requests expecting the three variant of refused responses
 
         The last step is sending a valid request and check if the file
         has effectively been created at the right location.
@@ -261,6 +261,17 @@ class TestProtocol(unittest.TestCase):
         # test sending invalid create file request because it has a
         # non-existing directory
         incorrect_directory = '/bar'
+        expected_response = (Response.REFUSED, Reason.FILE_NOT_FOUND)
+
+        request = make_create_file_request(name, incorrect_directory)
+        socket.send_pyobj(request)
+
+        response = socket.recv_pyobj()
+        self.assertTupleEqual(response, expected_response)
+
+        # test sending invalid create file request because it has a
+        # the directory refers to a file
+        incorrect_directory = '/foo/bar.bin'
         expected_response = (Response.REFUSED, Reason.NOT_A_DIRECTORY)
 
         request = make_create_file_request(name, incorrect_directory)

@@ -243,6 +243,13 @@ class TestClient(unittest.TestCase):
         # test creating a file with a non-existing directory
         invalid_directory = '/foo'
 
+        with self.assertRaises(FileNotFoundError):
+            client.create_file(name, invalid_directory)
+
+        # test creating a file with a directory that is not an actual
+        # directory
+        invalid_directory = '/foo.bin'
+
         with self.assertRaises(NotADirectoryError):
             client.create_file(name, invalid_directory)
 

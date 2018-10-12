@@ -168,9 +168,10 @@ class Client:
         The directory parameter must be a :term:`path-like object` that
         refers to an **existing** directory in the remote directory
         where the file must be created. If the directory doesn't exist,
-        the :py:exc:`NotADirectoryError` exception (may change) is
-        raised. It must be an absolute path or a :py:exc:`ValueError`
-        exception is raised.
+        the :py:exc:`FileNotFoundError` exception is raised, and if
+        it's not an actual directory, the :py:exc:`NotADirectoryError`
+        exception is raised. It must be an absolute path or a
+        :py:exc:`ValueError` exception is raised.
 
         If the operation takes longer than the given timeout, a
         :py:exc:`TimeoutError` exception is raised.
@@ -179,7 +180,8 @@ class Client:
         :param path directory:      The given remote directory where to create the file.
         :param int timeout:         How many milliseconds to wait before giving up
         :raises ValueError:         If the directory is not an absolute path.
-        :raises NotADirectoryError: If the directory doesn't exist.
+        :raises FileNotFound:       If the directory doesn't exist.
+        :raises NotADirectoryError  If the directory is not a directory.
         :raises FileNameError:      If the name of the file isn't valid.
         :raises FileExistsError:    If the name conflicts with the name of an existing file or directory.
         :raises TimeoutError:       If it takes more than the timeout value to receive a response.
@@ -213,6 +215,8 @@ class Client:
             reason_type = response[1]
             if reason_type == Reason.INVALID_FILE_NAME:
                 raise FileNameError
+            elif reason_type == Reason.FILE_NOT_FOUND:
+                raise FileNotFoundError
             elif reason_type == Reason.NOT_A_DIRECTORY:
                 raise NotADirectoryError
             elif reason_type == Reason.FILE_ALREADY_EXISTS:
