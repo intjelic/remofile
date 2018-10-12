@@ -410,6 +410,7 @@ class Server:
 
         * ACCEPTED with DIRECTORY_CREATED
         * REFUSED with INVALID_FILE_NAME
+        * REFUSED with FILE_NOT_FOUND
         * REFUSED with NOT_A_DIRECTORY
         * REFUSED with FILE_ALREADY_EXISTS
 
@@ -446,12 +447,16 @@ class Server:
         # combine the destination directory with the root directory
         directory = self.root_directory / directory
 
-        # return NOT_A_DIRECTORY refused response if the destination
-        # isn't an actual directory
-        if not directory.exists() or directory.is_file():
+        # return a FILE_NOT_FOUND refused response if the destination
+        # directory doesn't exist or NOT_A_DIRECTORY refused reponse if
+        # it's not an actual directory
+        if not directory.exists():
+            response = make_file_not_found_response()
+            self.socket.send_pyobj(response)
+            return
+        elif directory.is_file():
             response = make_not_a_directory_response()
             self.socket.send_pyobj(response)
-
             return
 
         # combine the destination directory with the name to get the

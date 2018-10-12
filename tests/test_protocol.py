@@ -313,6 +313,7 @@ class TestProtocol(unittest.TestCase):
 
           foo/
             bar/
+          foo.bin
 
         Then, it attemps to create a directory 'qaz/' in 'foo/'
         directory.
@@ -321,7 +322,7 @@ class TestProtocol(unittest.TestCase):
         several invalid requests.
 
           - Send a bad request
-          - Send the three invalid requests expecting the three variant of refused responses
+          - Send the four invalid requests expecting the three variant of refused responses
 
         The last step is sending a valid request and check if the
         directory has effectively been created at the right location.
@@ -337,6 +338,7 @@ class TestProtocol(unittest.TestCase):
         # create temporary working tree of files
         self.create_temporary_directory('/', 'foo')
         self.create_temporary_directory('/foo', 'bar')
+        self.create_temporary_file('/', 'foo.bin', 1024)
 
         # prepare common variables
         name      = 'qaz'
@@ -367,6 +369,17 @@ class TestProtocol(unittest.TestCase):
         # test sending invalid make directory request because it has a
         # non-existing directory
         incorrect_directory = '/bar'
+        expected_response = (Response.REFUSED, Reason.FILE_NOT_FOUND)
+
+        request = make_make_directory_request(name, incorrect_directory)
+        socket.send_pyobj(request)
+
+        response = socket.recv_pyobj()
+        self.assertTupleEqual(response, expected_response)
+
+        # test sending invalid make directory request because the
+        # directory refers to a file
+        incorrect_directory = '/foo.bin'
         expected_response = (Response.REFUSED, Reason.NOT_A_DIRECTORY)
 
         request = make_make_directory_request(name, incorrect_directory)

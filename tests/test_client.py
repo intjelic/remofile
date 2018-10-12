@@ -179,7 +179,7 @@ class TestClient(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             client.list_files('/foo')
 
-        # test listing files of a non-existing directory
+        # test listing files of a directory that actually is a file
         with self.assertRaises(NotADirectoryError):
             client.list_files('/foo.bin')
 
@@ -270,6 +270,7 @@ class TestClient(unittest.TestCase):
 
           /foo/
            bar/qaz/
+           foo.bin
 
         Then, it attempts to create a directory 'foo/' in the 'bar/'
         directory using the make_directory() method. It tries it with
@@ -295,6 +296,7 @@ class TestClient(unittest.TestCase):
         self.create_remote_directory('/', 'foo')
         self.create_remote_directory('/', 'bar')
         self.create_remote_directory('/', 'qaz')
+        self.create_remote_file('/', 'foo.bin', 1052)
 
         # prepare common variables
         name = 'foo'
@@ -321,6 +323,13 @@ class TestClient(unittest.TestCase):
 
         # test making a directory with a non-existing directory
         invalid_directory = '/foo/bar'
+
+        with self.assertRaises(FileNotFoundError):
+            client.make_directory(name, invalid_directory)
+
+        # test making a directory with a directory that isn't an actual
+        # directory
+        invalid_directory = '/foo.bin'
 
         with self.assertRaises(NotADirectoryError):
             client.make_directory(name, invalid_directory)
