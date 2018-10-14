@@ -350,16 +350,20 @@ class TestClient(unittest.TestCase):
         the local and remote directories, as follow.
 
           $(local_dir)/foo.bin
+                       bar/
 
           $(remote_dir)/bar/
                         qaz/foo.bin
 
         Then it attempts to upload the local 'foo.bin' file to the
         remote 'bar/' directory using the upload_file() method. It tries
-        it with different variants of invalid set of parameters to check
-        if errors are corectly triggered.
+        it with different set of parameters, either valid or invalid,
+        and systematically check if the operation was successfully or
+        not. If this is successful, it checks that the binary content is
+        correct, and if it's a failure, it checks if the exceptions are
+        triggered correctly.
 
-        Incorrect variants of invalid parameters.
+        Different set of valid and invalid parameters.
 
           - test uploading a file with source is a relative path
           - test uploading a file with source is an absolute path
@@ -373,11 +377,15 @@ class TestClient(unittest.TestCase):
           - test uploading a file with an invalid chunk size
           - test uploading a file with a custom process chunk callback
           - test uploading a file with a custom process chunk callback that interupts the upload
+          - test uploading a file with a custom process chunk callback that raises an exception
           - test uploading a file with chunk size greater than the file size being uploaded
 
         It finishes with uploading the file successfully (using a set of
         valid parameters) and test if the file has effectively been
         uploaded.
+
+        Note that checking the file size limit is done in server-related
+        tests.
         """
 
         # create client instance
@@ -521,6 +529,19 @@ class TestClient(unittest.TestCase):
         client.upload_file(source, destination, name, chunk_size, custom_process_chunk)
         assert_file_not_uploaded(source, destination, name)
 
+        # test uploading a file with a custom process chunk callback
+        # that raises an exception
+        class CustomException(Exception):
+            pass
+
+        def custom_process_chunk(chunk_data, remaining_bytes, file_size, file_name):
+            raise CustomException()
+
+        with self.assertRaises(CustomException):
+                client.upload_file(source, destination, name, chunk_size, custom_process_chunk)
+
+        assert_file_not_uploaded(source, destination, name)
+
         # test uploading a file with chunk size greater than the file
         # size being uploaded
         assert_file_not_uploaded(source, destination, name)
@@ -554,26 +575,32 @@ class TestClient(unittest.TestCase):
 
         Then it attempts to upload the local 'foo/' directory to the
         remote 'bar/' directory using the upload_directory() method. It
-        tries it with different variants of invalid set of parameters
-        to check if errors are corectly triggered.
+        tries it with different set of parameters, either valid or
+        invalid, and systematically check if the operation was
+        successfully or not. If this is successful, it checks that the
+        binary content is correct, and if it's a failure, it checks if
+        the exceptions are triggered correctly.
 
-        Incorrect variants of invalid parameters.
+        Different set of valid and invalid parameters.
 
           - test uploading a directory with source is a relative path
           - test uploading a directory with source is an absolute path
           - test uploading a directory with changing its name
-          - test uploading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a directory)
+          - test uploading a directory with source being a file that doesn't exist
+          - test uploading a directory with source being a directory (and not a file)
           - test uploading a directory with destination being a relative path
-          - test uploading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with destination exists but is not a directory)
-          - [TODO] test uploading a directory with a name that conflicts with an xisting file in the destination directory
+          - test uploading a directory with destination being a directory that doesn't exist
+          - test uploading a directory with destination being a file (and not a directory)
+          - test uploading a directory with a name that conflicts with an existing file in the destination directory
           - test uploading a directory with an invalid chunk size
-          - [TODO] test uploading a directory with a custom process chunk callback
-          - [TODO] test uploading a directory with a custom process chunk callback that interupts the upload
-          - [TODO] test uploading a directory with chunk size greater than the file size being uploaded
 
         It finishes with uploading the directory successfully (using a
         set of valid parameters) and test if the directory has
         effectively been uploaded.
+
+        Note that unlike the upload file test, it doesn't check the
+        chunk processing callback function. And also, the file size
+        limit is checked in the server-related tests.
         """
 
         # create client instance
@@ -660,6 +687,8 @@ class TestClient(unittest.TestCase):
         with self.assertRaises(SourceNotFound):
             client.upload_directory('qaz', destination, name, chunk_size, process_chunk)
 
+        assert_directory_not_uploaded(source, destination, 'qux')
+
         # test uploading a directory with source being a file (and not a
         # directory)
         with self.assertRaises(SourceNotFound):
@@ -680,12 +709,17 @@ class TestClient(unittest.TestCase):
         with self.assertRaises(DestinationNotFound):
             client.upload_directory(source, '/qaz.bin', name, chunk_size, process_chunk)
 
+        # test uploading a directory with a name that conflicts with an
+        # existing file in the destination directory
+        with self.assertRaises(FileExistsError):
+            client.upload_directory(source, '/', name, chunk_size, process_chunk)
+
         # test uploading a directory with an invalid chunk size
         with self.assertRaises(ValueError):
             client.upload_directory(source, destination, name, 0, process_chunk)
 
         # test uploading the directory again to ensure the previous
-        # operations didn't correup the server state
+        # operations didn't corrupt the server state
         assert_directory_not_uploaded(source, destination, name)
         client.upload_directory(source, destination, name, chunk_size, process_chunk)
 

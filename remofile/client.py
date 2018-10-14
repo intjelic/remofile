@@ -308,15 +308,16 @@ class Client:
         transfered to the remote directory and must to be a
         :term:`path-like object`. If it's a relative path, it's treated
         like relative to the current working directory. If the source
-        file can't be found or is not a file, the SourceNotFound
+        file can't be found or is not a file, the :py:exc:`SourceNotFound`
         exception is raised.
 
         The **destination** parameter refers to the remote directory in
         which the file must be transfered to. It must be a
         :term:`path-like object` of an **existing** directory and it
-        must be an absolute path or it will raise the ValueError
-        exception. If the destination directory can't be found or is not
-        a directory, the DestinationNotFound exception is raised.
+        must be an absolute path or the :py:exc:`ValueError` exception
+        is raised. If the destination directory can't be found or is not
+        a directory, the :py:exc:`DestinationNotFound` exception is
+        raised.
 
         The name parameter can be used to rename the source file while
         uploading it (the content is guaranteed to be the same). It must
@@ -362,14 +363,15 @@ class Client:
         :param source:        The (local) source file to upload.
         :param destination:   The (remote) destination directory where to upload the file.
         :param name:          The name of the file after it's uploaded.
-        :param chunk_size:    Foobar.
-        :param process_chunk: Foobar.
+        :param chunk_size:    How fragmented (in bytes) the file is during the upload process.
+        :param process_chunk: Function processing chunks before they are sent out.
         :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the destination directory isn't an absolute path.
         :raises SourceNotFound:      If the source file doesn't exist or isn't a file.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source file conflicts with an existing file or directory.
         :raises FileNameError:       If the source file doesn't have a valid name.
+        :raises ValueError:          If the chunk size or file size is invalid.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -400,42 +402,25 @@ class Client:
         # DestinationNotFound exception if it doesn't exist or is not
         # a directory (a root is always a valid destination)
         if str(destination) != destination.root:
-
             try:
                 files = self.list_files(destination.parent, timeout)
-            except NotADirectoryError: # TODO: exception is likely to change
+            except (FileNotFoundError, NotADirectoryError):
                 raise DestinationNotFound("Destination directory could not be found")
-            except TimeoutError:
-                raise TimeoutError
-            except Exception:
-                raise UnexpectedError
 
             if destination.name not in files or files[destination.name][0] == False:
                 raise DestinationNotFound("Destination directory could not be found")
 
         # check if the file name doesn't conflict with an existing file
         # (or directory) in the destination directory
-        try:
-            files = self.list_files(destination, timeout)
-        except TimeoutError:
-            raise TimeoutError
-        except Exception:
-            raise UnexpectedError
+        files = self.list_files(destination, timeout)
 
         if name in files:
             raise FileExistsError
 
-        # initiate and do the upload process
-        try:
-            self._upload_file(source, destination, name, chunk_size, process_chunk, timeout)
-        except ValueError:
-            # if chunk size is incorrect
-            raise ValueError
-        except FileNameError:
-            # if file name is invalid
-            raise FileNameError
-        except Exception:
-            raise NotImplementedError
+        # initiate and do the upload process, will raise FileNameError
+        # exception if the file name is invalid, and a ValueError if
+        # either the chunk size or the file size limit is incorrects
+        self._upload_file(source, destination, name, chunk_size, process_chunk, timeout)
 
     def upload_directory(self, source, destination, name=None,
         chunk_size=512, process_chunk=None, timeout=None):
@@ -449,14 +434,15 @@ class Client:
         :term:`path-like object`. If it's a relative path, it's treated
         like relative to the current working directory. If the source
         directory can't be found or is not a directory, the
-        SourceNotFound exception is raised.
+        :py:exc:`SourceNotFound` exception is raised.
 
         The **destination** parameter refers to the remote directory in
         which the directory must be transfered to. It must be a
         :term:`path-like object` of an **existing** directory and it
-        must be an absolute path or it will raise the ValueError
-        exception. If the destination directory can't be found or is
-        not a directory, the DestinationNotFound exception is raised.
+        must be an absolute path or the :py:exc:`ValueError` exception
+        is raised. If the destination directory can't be found or is
+        not a directory, the :py:exc:`DestinationNotFound` exception is
+        raised.
 
         The name parameter can be used to rename the source directory
         while uploading it (the content is guaranteed to be the same).
@@ -502,14 +488,15 @@ class Client:
         :param source:        The (local) source directory to upload.
         :param destination:   The (remote) destination directory where to upload the directory.
         :param name:          The name of the directory after it's uploaded.
-        :param chunk_size:    Foobar.
-        :param process_chunk: Foobar.
+        :param chunk_size:    How fragmented (in bytes) files are during the upload process.
+        :param process_chunk: Function processing chunks before they are sent out.
         :param timeout:       How many milliseconds to wait before giving up.
         :raises ValueError:          If the destination directory isn't an absolute path.
         :raises SourceNotFound:      If the source directory doesn't exist or isn't a directory.
         :raises DestinationNotFound: If the destination directory doesn't exist or isn't a directory.
         :raises FileExistsError:     If the source directory conflicts with an existing file or directory.
         :raises FileNameError:       If the source directory doesn't have a valid name.
+        :raises ValueError:          If the chunk size or file size is invalid.
         :raises TimeoutError:        If it takes more than the timeout value to receive a response.
         """
 
@@ -542,34 +529,18 @@ class Client:
         if str(destination) != destination.root:
             try:
                 files = self.list_files(destination.parent, timeout)
-            except NotADirectoryError: # TODO: exception is likely to change
+            except (FileNotFoundError, NotADirectoryError) as error:
                 raise DestinationNotFound("Destination directory could not be found")
-            except TimeoutError:
-                raise TimeoutError
-            except Exception:
-                raise UnexpectedError
 
             if destination.name not in files or files[destination.name][0] == False:
                 raise DestinationNotFound("Destination directory could not be found")
 
         # check if the directory name doesn't conflict with an existing
         # directory (or file) in the destination directory
-        try:
-            files = self.list_files(destination, timeout)
-        except TimeoutError:
-            raise TimeoutError
-        except Exception:
-            raise UnexpectedError
+        files = self.list_files(destination, timeout)
 
         if name in files:
             raise FileExistsError
-
-        ## initiate recursive upload directory algorithm to cope with
-        ## rename while upload
-        #try:
-            #self.make_directory(name, str(destination), timeout)
-        #except Exception:
-            #pass # handle exception here
 
         # the following code is a workaround! it should let the server
         # refuse the chunk size instead, but if we do that, the
@@ -578,6 +549,10 @@ class Client:
         if chunk_size == 0 or chunk_size > 8192:
             raise ValueError("Chunk size value is invalid")
 
+        # initiate and do the upload process, will raise FileNameError
+        # exception if of the file in the direcotry has an invalid name,
+        # and a ValueError if either the chunk size or the file size
+        # limit is incorrect
         self._upload_directory(source, destination, name, chunk_size, process_chunk, timeout)
 
     def download_file(self, source, destination, name=None, chunk_size=512,
@@ -849,18 +824,20 @@ class Client:
         raise NotImplementedError
 
     def _upload_file(self, source, destination, name, chunk_size, process_chunk, timeout):
-        """ Do upload the file.
+        """ Do upload a file.
 
         The source and destination parameters are posix paths and their
-        validity has previously been checked. The name parameter
-        contains the name of the file.
+        validity has previously been checked. The name parameter is the
+        name of the file.
 
-        If the chunk size is invalid the ValueError exception is
+        If the chunk size or file size is invalid the ValueError exception is
         raised and if the file name is invalid the FileNameInvalid
-        exception is raised. Other exceptions are UnexpectedError,
-        BadRequestError, UnknownError and CorruptedResponse.
+        exception is raised. Other exceptions such as BadRequestError,
+        CorruptedResponse, UnknownError or UnexpectedError could also
+        be raised.
 
-        Exceptions might be raised by the process_chunk callback function.
+        Exceptions might also be raised by the chunk processing callback
+        function.
         """
 
         # open source file and read its size
@@ -885,7 +862,8 @@ class Client:
 
             return
 
-        # initiate upload file process
+        # initiate upload file process (by sending a UPLOAD_FILE
+        # request)
         request = make_upload_file_request(name, destination, file_size, chunk_size)
         self.socket.send_pyobj(request)
 
@@ -897,13 +875,15 @@ class Client:
         try:
             response_type = response[0]
         except Exception as error:
-            raise CorruptedResponse("Unable to extract resonse type from response", error)
+            raise CorruptedResponse("Unable to extract response type from response", error)
 
+        # handle the three types of response (accepted, refused or
+        # error)
         if response_type == Response.ACCEPTED:
             try:
                 reason_type = response[1]
             except Exception as error:
-                raise CorruptedResponse("Unable to extract reason type from response")
+                raise CorruptedResponse("Unable to extract reason type from accept response", error)
 
             try:
                 assert reason_type == Reason.TRANSFER_ACCEPTED
@@ -914,24 +894,27 @@ class Client:
             try:
                 reason_type = response[1]
             except Exception as error:
-                raise CorruptedResponse("Invalid reason type in error response", error)
+                raise CorruptedResponse("Unable to exract reason type from refuse response", error)
 
             # the only refused response we expect is an invalid chunk
-            # size or an invalid file name, the others are unexpected
-            # errors since previous checks have been made (for instance,
-            # we have ensured the file size is greather than 0, and made
-            # a create file request instead)
+            # size, an invalid file size or an invalid file name, the
+            # others are unexpected errors since previous checks have
+            # been made (for instance, we have ensured the file size is
+            # greather than 0, and made a create file request instead)
             if reason_type == Reason.INCORRECT_CHUNK_SIZE:
                 raise ValueError("Chunk size is invalid")
+            elif reason_type == Reason.INVALID_FILE_SIZE:
+                raise ValueError("File size limit is invalid")
             elif reason_type == Reason.INVALID_FILE_NAME:
                 raise FileNameError
             else:
-                raise CorruptedResponse("Invalid reason type in error response")
+                raise CorruptedResponse("Invalid reason type in refuse response")
 
         elif response_type == Response.ERROR:
             self._process_error_response(response)
 
-        # send data chunks until the upload is completed
+        # do the upload file process (send data chunks until the upload
+        # is completed)
         transfer_completed = False
         last_chunk = False
 
@@ -945,24 +928,53 @@ class Client:
             # read next data chunk from the file
             chunk_data = source_file.read(chunk_size)
 
-            # foobar
+            # process the chunk with the custom callback (if any) before
+            # it's sent out
             if process_chunk:
-                should_continue = process_chunk(chunk_data, remaining_bytes, file_size, source.name)
+                try:
+                    raise_exception = None
+                    should_continue = process_chunk(chunk_data, remaining_bytes, file_size, source.name)
+                except Exception as exception:
+                    should_continue = False
+                    raise_exception = exception
 
+                # if uploading the file should be interrupted, send a
+                # CANCEL_TRANSFER request
                 if not should_continue:
                     request = make_cancel_transfer_request()
                     self.socket.send_pyobj(request)
 
-                    response = self.socket.recv_pyobj()
+                    if self.socket.poll(timeout) & zmq.POLLIN:
+                        response = self.socket.recv_pyobj()
+                    else:
+                        raise TimeoutError
 
-                    if response[0] != Response.ACCEPTED:
-                        raise NotImplementedError
+                    try:
+                        response_type = response[0]
+                    except Exception as error:
+                        raise CorruptedResponse("Unable to extract response type from response", error)
 
-                    assert response[1] == Reason.TRANSFER_CANCELLED
+                    if response_type == Response.ACCEPTED:
+                        try:
+                            reason_type = response[1]
+                        except Exception as error:
+                            raise CorruptedResponse("Unable to extract reason type from accept response", error)
 
-                    transfer_completed = True
+                        try:
+                            assert reason_type == Reason.TRANSFER_CANCELLED
+                        except AssertionError as error:
+                            raise CorruptedResponse("Invalid reason type in accept response", error)
 
-                    continue
+                        if raise_exception:
+                            raise raise_exception
+                            
+                        transfer_completed = True
+                        continue
+
+                    elif response_type == Response.ERROR:
+                        self._process_error_response(response)
+                    else:
+                        raise CorruptedResponse("Invalid response type")
 
             # send data chunk and wait for response
             request = make_send_chunk_request(chunk_data)
@@ -978,35 +990,51 @@ class Client:
             except Exception:
                 raise CorruptedResponse("Unable to extract response type from response", error)
 
-            if response_type != Response.ACCEPTED:
+            if response_type == Response.ACCEPTED:
+                try:
+                    reason_type = response[1]
+                except Exception as error:
+                    raise CorruptedResponse("Unable to extract reason type from accept response", error)
 
-                # may either be REFUSED or ERROR response
+                try:
+                    if last_chunk:
+                        assert reason_type == Reason.TRANSFER_COMPLETED
+                        transfer_completed = True
+                    else:
+                        assert reason_type == Reason.CHUNK_RECEIVED
+                except AssertionError:
+                    raise CorruptedResponse("Invalid reason type in accept response")
 
+            elif response_type == Response.ERROR:
                 self._process_error_response(response)
-                return
-
-            try:
-                reason_type = response[1]
-            except Exception as error:
-                raise CorruptedResponse("Unable to extract reason type from accept response", error)
-
-            #if reason_type == Reason.TRANSFER_COMPLETED:
-                #pass
-            #elif reason_type == Reason.CHUNK_RECEIVED:
-                #pass
-            #else:
-                #raise CorruptedResponse("Invalid reason type in accept response")
-
-
-            if last_chunk:
-                assert reason_type == Reason.TRANSFER_COMPLETED
-                transfer_completed = True
             else:
-                assert reason_type == Reason.CHUNK_RECEIVED
+                raise CorruptedResponse("Invalid response type")
 
         source_file.close()
 
     def _upload_directory(self, source, destination, name, chunk_size, process_chunk, timeout):
+        """ Do upload a directory.
+
+        The source and destination parameters are posix paths and their
+        validity has previously been checked. The name parameter is the
+        name of the directory.
+
+        If the chunk size or file size is invalid the ValueError
+        exception is
+        raised and if the file name is invalid the FileNameInvalid
+        exception is raised.
+
+        If the chunk size is invalid or if one of the file in the
+        diretory has an invalid size, the ValueError exception is
+        raised. If the name of the directory or one of the file in the
+        directory is invalid, the FileNameInvalid exception is raised.
+        Other exceptions such as BadRequestError, CorruptedResponse,
+        UnknownError or UnexpectedError could also be raised.
+
+        Exceptions might also be raised by the chunk processing callback
+        function.
+        """
+
         # the source is an absolute path pointing to the directory to
         # create in destination
         self.make_directory(name, destination, timeout)
