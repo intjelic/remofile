@@ -884,170 +884,170 @@ class TestClient(unittest.TestCase):
         # didn't corrupt the server state
         pass
 
-    def test_download_directory(self):
-        """ Test the download directory method.
-
-        It starts with creating temporary working trees of files in both
-        the local and remote directories, as follow.
-
-          $(local_dir)/bar/
-                       qaz/foo
-                       foo.bin
-
-          $(remote_dir)/foo/bar.bin
-                            qaz/xyz.img
-
-        Then it attempts to download the remote 'foo/' directory to the
-        local 'bar/' directory using the download_directory() method. It
-        tries it with different variants of invalid set of parameters to
-        check if errors are corectly triggered.
-
-        Incorrect variants of invalid parameters.
-
-          - test downloading a directory with destination is a relative path
-          - test downloading a directory with destination is an absolute path
-          - test downloading a directory with changing its name
-          - test downloading a directory with source being a relative path
-          - test downloading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
-          - [CHECK-ME] is anything missing here ?
-          - test downloading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with  destination exist but is not a directory)
-          - test downloading a directory with a name that conflicts with an existing file in the destination directory
-          - test downloading a directory with an invalid chunk size
-          - test downloading a directory again to ensure the previous operations didn't corrupt the server state
-
-        It finishes with downloading the directory successfully (using
-        a set of valid parameters) and test if the directory has
-        effectively been downloaded.
-        """
-
-        # create client instance
-        client = Client(HOSTNAME, PORT, TOKEN)
-
-        # create local working tree of files
-        self.create_local_directory('/', 'bar')
-        self.create_local_directory('/', 'qaz')
-        self.create_local_directory('/qaz', 'foo')
-        self.create_local_file('/', 'foo.bin', 42)
-
-        # create remote working tree of files
-        self.create_remote_directory('/', 'foo')
-        _, bar_file_data = self.create_remote_file('/foo', 'bar.bin', 1052)
-        self.create_remote_directory('/foo', 'qaz')
-        _, xyz_file_data = self.create_remote_file('/foo/qaz', 'xyz.img', 312)
-
-        # prepare assert routines
-        def assert_directory_not_downloaded(source, destination, name=None):
-            if not name:
-                name = PurePosixPath(source).name
-
-            downloaded_directory_path = self.local_directory_path / destination / name
-            self.assertFalse(downloaded_directory_path.exists())
-
-        def assert_directory_downloaded(source, destination, name=None):
-            if not name:
-                name = PurePosixPath(source).name
-
-            # assert foo/
-            foo_directory_path = self.local_directory_path / destination / name
-            self.assertTrue(foo_directory_path.is_dir())
-
-            # assert foo/bar.bin
-            bar_file_path = self.local_directory_path / destination / name / 'bar.bin'
-            self.assertTrue(bar_file_path.is_file())
-            self.assertEqual(bar_file_path.open('rb').read(), bar_file_data)
-
-            # assert foo/qaz
-            qaz_directory_path = self.local_directory_path / destination / name / 'qaz'
-            self.assertTrue(qaz_directory_path.is_dir())
-
-            # assert foo/qaz/xyz.img
-            xyz_file_path = self.local_directory_path / destination / name / 'qaz/xyz.img'
-            self.assertTrue(xyz_file_path.is_file())
-            self.assertEqual(xyz_file_path.open('rb').read(), xyz_file_data)
-
-        def delete_downloaded_directory(source, destination, name=None):
-            if not name:
-                name = PurePosixPath(source).name
-
-            downloaded_directory_path = self.local_directory_path / destination / name
-            shutil.rmtree(downloaded_directory_path)
-
-        # prepare common variables
-        source = '/foo'
-        destination = 'bar'
-        name = None
-        chunk_size = 512
-        process_chunk = None
-
-        # test downloading a directory with destination is a relative path
-        assert_directory_not_downloaded(source, destination, name)
-
-        client.download_directory(source, destination, name, chunk_size, process_chunk)
-
-        assert_directory_downloaded(source, destination, name)
-        delete_downloaded_directory(source, destination, name)
-
-        # test downloading a directory with destination is an absolute path
-        assert_directory_not_downloaded(source, destination, name)
-
-        client.download_directory(source, self.local_directory_path / destination, name, chunk_size, process_chunk)
-
-        assert_directory_downloaded(source, destination, name)
-        delete_downloaded_directory(source, destination, name)
-
-        # test downloading a directory with changing its name
-        assert_directory_not_downloaded(source, destination, 'bar')
-
-        client.download_directory(source, destination, 'bar', chunk_size, process_chunk)
-
-        assert_directory_downloaded(source, destination, 'bar')
-        delete_downloaded_directory(source, destination, 'bar')
-
-        # test downloading a directory with source being a relative path
-        with self.assertRaises(ValueError):
-            client.download_directory('foo', destination, name, chunk_size, process_chunk)
-
-        assert_directory_not_downloaded(source, destination, name)
-
-        # test downloading a directory with source being a directory
-        # that doesn't exist
-        with self.assertRaises(SourceNotFound):
-            client.download_directory('/bar', destination, name, chunk_size, process_chunk)
-        #
-        # # test downloading a directory with source being a file (and not
-        # # a directory)
-        # with self.assertRaises(SourceNotFound):
-        #     client.download_directory('/foo/bar.bin', destination, name, chunk_size, process_chunk)
-
-        # test downloading a directory with destination being a
-        # directory that doesn't exist
-        with self.assertRaises(DestinationNotFound):
-            client.download_directory(source, 'foo', name, chunk_size, process_chunk)
-
-        # test downloading a directory with destination being a file
-        # (and not a directory)
-        with self.assertRaises(DestinationNotFound):
-            client.download_directory(source, 'foo.bin', name, chunk_size, process_chunk)
-
-        # test downloading a directory with a name that conflicts with an
-        # existing file in the destination directory
-        with self.assertRaises(FileExistsError):
-            client.download_directory(source, 'qaz', name, chunk_size, process_chunk)
-
-        # test downloading a directory with an invalid chunk size
-        with self.assertRaises(ValueError):
-            client.download_directory(source, destination, name, 0, process_chunk)
-
-        assert_directory_not_downloaded(source, destination, name)
-
-        # test downloading a directory again to ensure the previous operations
-        # didn't corrupt the server state
-        assert_directory_not_downloaded(source, destination, name)
-
-        client.download_directory(source, destination, name, chunk_size, process_chunk)
-
-        assert_directory_downloaded(source, destination, name)
-        delete_downloaded_directory(source, destination, name)
+    # def test_download_directory(self):
+    #     """ Test the download directory method.
+    #
+    #     It starts with creating temporary working trees of files in both
+    #     the local and remote directories, as follow.
+    #
+    #       $(local_dir)/bar/
+    #                    qaz/foo
+    #                    foo.bin
+    #
+    #       $(remote_dir)/foo/bar.bin
+    #                         qaz/xyz.img
+    #
+    #     Then it attempts to download the remote 'foo/' directory to the
+    #     local 'bar/' directory using the download_directory() method. It
+    #     tries it with different variants of invalid set of parameters to
+    #     check if errors are corectly triggered.
+    #
+    #     Incorrect variants of invalid parameters.
+    #
+    #       - test downloading a directory with destination is a relative path
+    #       - test downloading a directory with destination is an absolute path
+    #       - test downloading a directory with changing its name
+    #       - test downloading a directory with source being a relative path
+    #       - test downloading a directory with a source directory that doesn't exist (todo: make 2 versions of it, one with source exists but is not a file)
+    #       - [CHECK-ME] is anything missing here ?
+    #       - test downloading a directory with a destination directory that doesn't exist (todo: make 2 versions of it, one with  destination exist but is not a directory)
+    #       - test downloading a directory with a name that conflicts with an existing file in the destination directory
+    #       - test downloading a directory with an invalid chunk size
+    #       - test downloading a directory again to ensure the previous operations didn't corrupt the server state
+    #
+    #     It finishes with downloading the directory successfully (using
+    #     a set of valid parameters) and test if the directory has
+    #     effectively been downloaded.
+    #     """
+    #
+    #     # create client instance
+    #     client = Client(HOSTNAME, PORT, TOKEN)
+    #
+    #     # create local working tree of files
+    #     self.create_local_directory('/', 'bar')
+    #     self.create_local_directory('/', 'qaz')
+    #     self.create_local_directory('/qaz', 'foo')
+    #     self.create_local_file('/', 'foo.bin', 42)
+    #
+    #     # create remote working tree of files
+    #     self.create_remote_directory('/', 'foo')
+    #     _, bar_file_data = self.create_remote_file('/foo', 'bar.bin', 1052)
+    #     self.create_remote_directory('/foo', 'qaz')
+    #     _, xyz_file_data = self.create_remote_file('/foo/qaz', 'xyz.img', 312)
+    #
+    #     # prepare assert routines
+    #     def assert_directory_not_downloaded(source, destination, name=None):
+    #         if not name:
+    #             name = PurePosixPath(source).name
+    #
+    #         downloaded_directory_path = self.local_directory_path / destination / name
+    #         self.assertFalse(downloaded_directory_path.exists())
+    #
+    #     def assert_directory_downloaded(source, destination, name=None):
+    #         if not name:
+    #             name = PurePosixPath(source).name
+    #
+    #         # assert foo/
+    #         foo_directory_path = self.local_directory_path / destination / name
+    #         self.assertTrue(foo_directory_path.is_dir())
+    #
+    #         # assert foo/bar.bin
+    #         bar_file_path = self.local_directory_path / destination / name / 'bar.bin'
+    #         self.assertTrue(bar_file_path.is_file())
+    #         self.assertEqual(bar_file_path.open('rb').read(), bar_file_data)
+    #
+    #         # assert foo/qaz
+    #         qaz_directory_path = self.local_directory_path / destination / name / 'qaz'
+    #         self.assertTrue(qaz_directory_path.is_dir())
+    #
+    #         # assert foo/qaz/xyz.img
+    #         xyz_file_path = self.local_directory_path / destination / name / 'qaz/xyz.img'
+    #         self.assertTrue(xyz_file_path.is_file())
+    #         self.assertEqual(xyz_file_path.open('rb').read(), xyz_file_data)
+    #
+    #     def delete_downloaded_directory(source, destination, name=None):
+    #         if not name:
+    #             name = PurePosixPath(source).name
+    #
+    #         downloaded_directory_path = self.local_directory_path / destination / name
+    #         shutil.rmtree(downloaded_directory_path)
+    #
+    #     # prepare common variables
+    #     source = '/foo'
+    #     destination = 'bar'
+    #     name = None
+    #     chunk_size = 512
+    #     process_chunk = None
+    #
+    #     # test downloading a directory with destination is a relative path
+    #     assert_directory_not_downloaded(source, destination, name)
+    #
+    #     client.download_directory(source, destination, name, chunk_size, process_chunk)
+    #
+    #     assert_directory_downloaded(source, destination, name)
+    #     delete_downloaded_directory(source, destination, name)
+    #
+    #     # test downloading a directory with destination is an absolute path
+    #     assert_directory_not_downloaded(source, destination, name)
+    #
+    #     client.download_directory(source, self.local_directory_path / destination, name, chunk_size, process_chunk)
+    #
+    #     assert_directory_downloaded(source, destination, name)
+    #     delete_downloaded_directory(source, destination, name)
+    #
+    #     # test downloading a directory with changing its name
+    #     assert_directory_not_downloaded(source, destination, 'bar')
+    #
+    #     client.download_directory(source, destination, 'bar', chunk_size, process_chunk)
+    #
+    #     assert_directory_downloaded(source, destination, 'bar')
+    #     delete_downloaded_directory(source, destination, 'bar')
+    #
+    #     # test downloading a directory with source being a relative path
+    #     with self.assertRaises(ValueError):
+    #         client.download_directory('foo', destination, name, chunk_size, process_chunk)
+    #
+    #     assert_directory_not_downloaded(source, destination, name)
+    #
+    #     # test downloading a directory with source being a directory
+    #     # that doesn't exist
+    #     with self.assertRaises(SourceNotFound):
+    #         client.download_directory('/bar', destination, name, chunk_size, process_chunk)
+    #     #
+    #     # # test downloading a directory with source being a file (and not
+    #     # # a directory)
+    #     # with self.assertRaises(SourceNotFound):
+    #     #     client.download_directory('/foo/bar.bin', destination, name, chunk_size, process_chunk)
+    #
+    #     # test downloading a directory with destination being a
+    #     # directory that doesn't exist
+    #     with self.assertRaises(DestinationNotFound):
+    #         client.download_directory(source, 'foo', name, chunk_size, process_chunk)
+    #
+    #     # test downloading a directory with destination being a file
+    #     # (and not a directory)
+    #     with self.assertRaises(DestinationNotFound):
+    #         client.download_directory(source, 'foo.bin', name, chunk_size, process_chunk)
+    #
+    #     # test downloading a directory with a name that conflicts with an
+    #     # existing file in the destination directory
+    #     with self.assertRaises(FileExistsError):
+    #         client.download_directory(source, 'qaz', name, chunk_size, process_chunk)
+    #
+    #     # test downloading a directory with an invalid chunk size
+    #     with self.assertRaises(ValueError):
+    #         client.download_directory(source, destination, name, 0, process_chunk)
+    #
+    #     assert_directory_not_downloaded(source, destination, name)
+    #
+    #     # test downloading a directory again to ensure the previous operations
+    #     # didn't corrupt the server state
+    #     assert_directory_not_downloaded(source, destination, name)
+    #
+    #     client.download_directory(source, destination, name, chunk_size, process_chunk)
+    #
+    #     assert_directory_downloaded(source, destination, name)
+    #     delete_downloaded_directory(source, destination, name)
 
     def test_remove_file(self):
         """ Test the remove file method.
