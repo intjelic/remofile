@@ -63,8 +63,8 @@ token to authenticate.
     remofile generate-token
 
 This generates a token which is a 16 letters long string. We'll be using
-**qRkVWJcFRqi7rsNMbagaDd** for demonstration purpose. Copy paste and
-store yours somewhere as it acts as a unique password.
+**qRkVWJcFRqi7rsNMbagaDd** for demonstration purpose. Copy paste it and
+store it somewhere as it acts as a unique password.
 
 Just like FTP, you want to jail and expose a directory to multiple
 clients. It isn't too hard, the `run` command allows you to do just
@@ -103,9 +103,9 @@ external mean while it's running. **But that should be common sense,
 shouldn't it ?**
 
 By not attempting to be smart, the overall interface and implementation
-becomes simpler and easier to use. If these two assumptions aren't respected,
-Remofile will still graciously fail with proper error messages if something
-bad occurs during file operations.
+becomes simpler and easier to use. If these two assumptions aren't
+respected, Remofile will still graciously fail with proper error
+messages if something bad occurs during file operations.
 
 Shell interactions
 ------------------
@@ -123,6 +123,12 @@ In Remofile, there is no notion of "current working directory", and therefore,
 the `/` refers to the root of the directory being served. This is also called
 the **root directory**. Earlier we started the server to expose `my-directory/`,
 so in this case, typing this command will list that directory.
+
+.. important::
+
+    Because there is no notion of **current working directory**, expect
+    the entire programming and command-line interface to complain if a
+    remote path isn't absolute.
 
 The list command also comes with options. Type `remofile list --help` to know
 more about them. For instance, it has options similar to the POSIX `ls` command
@@ -145,47 +151,47 @@ and from the remote directory. The two main commands involved are
 `upload` and `download`. They both support a dozen of options to
 customize the behavior.
 
-Both commands can transfer an **individual file**, a **directory** (if
-the recursive flag is passed) or a **set of files** specified by a
-shell glob patterns.
+Both commands can transfer an **individual file**, an entire
+**directory** (if the recursive flag is passed) or a **set of files**
+specified by a shell glob patterns.
 
 Have a look at the following.
 
 ::
 
-    remofile upload single-file.txt /
-    remofile upload a-directory/    /
-    remofile upload **/some-text-files*.txt /
+    remofile upload single-file.txt a-directory/ **/some-text-files*.txt /
+    remofile download single-file.txt a-directory/ .
 
-    remofile download single-file.txt .
-    remofile download a-directory/    .
-    remofile download **/some-text-files*.txt .
-
-We notice that the first argument refers to the source files, and the
-second argument refers to the destination. The destination must
+We notice that the first arguments refer to the source files, and the
+last argument refers to the destination. The destination must
 imperatively be an existing directory on either the remote directory for
-the upload command, or the local filesystem for download command.
+the upload command, or the local file-system for download command.
 
-In fact, the destination directory is optional and is defaulted to the
-root directory for the upload command, and the current working directory
-for the download command. For instance, you can upload a file, then
-download it back without thinking too much
+.. warning::
+
+    Shell glob patterns would only work for the upload command as it's
+    expanded by the underlying shell.
+
+The destination directory actually is optional and is defaulted to
+the root directory for the upload command, and the current working
+directory for the download command. For instance, you can upload a file,
+then download it back without thinking too much
 
     remofile upload ubuntu-16.04.3-desktop-amd64.iso
     remofile download ubuntu-16.04.3-desktop-amd64.iso
 
-To be written.
+But these two commands merely are a front-end to the :py:func`upload_files`
+and :py:func:`download_files` methods of the programming API. In fact,
+all command-lines we saw so far have their actual corresponding
+available available from Python.
 
-This is very close to a front-end to the `upoad_files` and
-`download_files` method of the programming API. In fact, now we'll have a
-look at the programming interface because at the end, all these commands are
-front-end to an actual implementation available in Python.
+Now we'll have a look at the programming interface because it's richer
+than the command-line interface in terms of functionalities.
 
 Remofile from Python code
 -------------------------
-
-Earlier, we saw how to start a Remofile server from the shell using the `run`
-command. In fact, it can also be done in Python.
+Earlier, we saw how to start a Remofile server from the shell using the
+`run` command. In fact, it can also be done in Python.
 
 ::
 
@@ -194,16 +200,16 @@ command. In fact, it can also be done in Python.
   server = Server('my-directory', 'qRkVWJcFRqi7rsNMbagaDd')
   server.run(6768)
 
-If the current working directory is the same as before, it will start the
-Remofile server exactly like we did previously. The `run()` method is blocking.
-To have it returning and thus, terminating the server, one must call the
-`terminate()` from external thread.
+If the current working directory is the same as before, it will start
+the Remofile server exactly like we did previously. The `run()` method
+is blocking. To have it returning and thus, terminating the server, one
+must call the `terminate()` from external thread.
 
 .. note::
 
-    By default, it listens to all IPs and this snipped of code is suitable for
-    production code. Always refer to the API reference for exhaustive
-    documentation.
+    By default, it listens to all IPs and this snipped of code is
+    suitable for production code. Always refer to the API reference for
+    exhaustive documentation.
 
 But everything we did on the client side also trivially matches to a Python
 programming interface.
