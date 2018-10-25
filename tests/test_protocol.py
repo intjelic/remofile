@@ -47,7 +47,7 @@ class TestProtocol(unittest.TestCase):
 
             signal.signal(signal.SIGTERM, handle_sigterm)
 
-            server.run(HOSTNAME, PORT)
+            server.run(PORT)
 
         self.server_process = Process(target=server_target, args=(self.remote_directory_path,))
         self.server_process.start()

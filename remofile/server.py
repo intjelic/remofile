@@ -7,7 +7,7 @@
 
 import os
 import os.path
-from pathlib import PosixPath
+from pathlib import PosixPath, PurePosixPath
 from enum import Enum
 from tempfile import mkstemp
 import shutil
@@ -22,15 +22,16 @@ MAXIMUM_CHUNK_SIZE = 8192
 ServerState = Enum('ServerState', ['IDLE', 'UPLOAD', 'DOWNLOAD', 'DELETE'])
 
 def normalize_directory(directory):
-    """ Normalize a directory.
+    """ Normalize a directory path.
 
-    Normalizing a directory consists of turning into a relative
-    directory, even it initially was a relative directory.
+    Normalizing a directory path consists of turning it into a relative
+    directory path, even if it initially was a relative directory path.
 
         /foo/bar/qaz -> foo/bar/qaz
         foo/bar/qaz  -> foo/bar/qaz
 
-    A normalized directory can be combined with the root directory.
+    A normalized directory path can be combined with the (path of the)
+    root directory.
     """
 
     return directory.relative_to(directory.root)
@@ -41,72 +42,207 @@ class Server:
     This class implements the server side of Remofile that behaves
     according to the protocol.
 
-        - start()/stop() to start threaded mode
-        - run() to start no thread mode
+    It's a single-threaded server that will jail a given directory
+    called **root directory**, and exposes it on Internet using a
+    given range of IP addresses and a port. It doesn't start
+    listening to connections until the blocking :py:meth:`run()`
+    method is called. To interrupt the loop, call the
+    :py:meth:`terminate()` method from a another thread. The server
+    can also be configured with various options.
 
-    Raise NotADirectoryError if the root directory doesn't exist
-    Raise ValueError if chunk size parametesr are incorrect (mini chunk
-    size must be greather than 0 and maxi chunk size must be greater or
-    equal to mini chunk size).
-    Raise ValueError if file size limit is incorrect
+    The :py:meth:`run()` may be found within a try-except statement
+    to catch the :py:meth:`KeyboardInterrupt` exception during
+    testing. ::
+
+        try:
+            server.run(port)
+        except KeyboardInterrupt:
+            server.terminate()
+
+    The configuration options includes the file size limit and the
+    chunk size range. The file size limit prevents clients from
+    transfering files exceeding a given size (expressed in bytes),
+    and the chunk size range prevents clients from
     """
 
-    def __init__(self, root_directory, token,
-        file_size_limit = FILE_SIZE_LIMIT,
-        min_chunk_size  = MINIMUM_CHUNK_SIZE,
-        max_chunk_size  = MAXIMUM_CHUNK_SIZE):
+    def __init__(self, root_directory, token, private_key=None, **kwargs):
         """ Construct a :py:class:`Server` instance.
 
-        Long description.
+        The server instance is constructed from the root directory,
+        the token, an optional private key and the server options
+        values.
 
-        :param root_directory: foobar.
-        :param token: foobar.
-        :param file_size_limit: foobar.
-        :param min_chunk_size: foobar.
-        :param max_chunk_size: foobar.
+        The root directory parameter must be a :term:`path-like object`
+        of an **existing** directory or a :py:exc:`NotADirectoryError`
+        exception is raised. The token and private key should
+        respectively be generated with the :py:func:`generate_token()`
+        and :py:func:`generate_keys()` to ensure validity of their
+        values, or it will raise a :py:exc:`ValueError`.
+
+        For the other parameters, check out the corresponding server
+        options properties :py:attr:`file_size_limit` and
+        :py:attr:`chunk_size_range`.
+
+        :param root_directory:      The directory which will be exposed to clients.
+        :param token:               The token that clients must use to be granted access.
+        :param private_key:         The private key to use to encrypt communication with clients.
+        :param file_size_limit:     The file size limit (in bytes) files can't exceed during upload/download.
+        :param chunk_size_range:    The minimum and maximum chunk size (in bytes) allowed during upload/download.
+        :raises NotADirectoryError: If the root directory isn't a valid (isn't a directory or doesn't exist).
+        :raises ValueError:         If the token or private_key aren't valid.
         """
 
-        root_directory = PosixPath(root_directory)
+        # encrypting communication with a set of public/private keys is
+        # not supported yet
+        if private_key:
+            raise NotImplementedError("encrypting communication isn't supported yet")
 
-        if not root_directory.is_absolute():
-            root_directory = PosixPath(os.getcwd(), root_directory)
-
-        if not root_directory.exists() or root_directory.is_file():
-            raise NotADirectoryError("The root directory must be an existing directory")
-
-        self.root_directory = root_directory
-
-        self.token = bytes(token, 'utf-8')
-
-        if file_size_limit <=0:
-            raise ValueError("The file size limit must be greater than 0")
-        self.file_size_limit = file_size_limit
-
-        if min_chunk_size <=0:
-            raise ValueError("The minimum chunk size must be greater than 0")
-
-        self.min_chunk_size = min_chunk_size
-        self.max_chunk_size = max_chunk_size
-
+        # global server state
         self.state = ServerState.IDLE
+        self.is_running = False
 
-        # server UPLOAD and DOWNLOAD state related attributes
+        # initialize attributes
+        self.root_directory = PurePosixPath(root_directory)
+
+        try:
+            self.token          = bytes(token, 'utf-8')
+        except Exception:
+            raise ValueError("the token is not valid")
+
+        self.private_key    = private_key
+
+        # use keyworded arguments or default to certain values
+        if 'file_size_limit' not in kwargs:
+            self.file_size_limit = FILE_SIZE_LIMIT
+        else:
+            self.file_size_limit = kwargs['file_size_limit']
+
+        if 'chunk_size_range' not in kwargs:
+            self.chunk_size_range = (MINIMUM_CHUNK_SIZE, MAXIMUM_CHUNK_SIZE)
+        else:
+            self.chunk_size_range = kwargs['chunk_size_range']
+
+        # upload and download state related attributes
         self.chunk_size       = 0
         self.temporary_file   = None # file open in 'wb' mode OR file open in 'rb' mode
         self.file_description = None
         self.remaining_bytes  = 0
         self.file_destination = None # upload only attribute
 
-        # socket relate attributes
+        # socket-related attributes
         self.router = None
         self.dealer = None
         self.socket = None
 
-        self.is_running = False
+    @property
+    def root_directory(self):
+        """ The directory to be exposed.
+
+        The root directory must be a :term:`path-like object` that
+        refers to an existing directory. If a relative path is passed,
+        it's combined with the current working directory to get an
+        absolute path. If the root directory doesn't exist, the
+        NotADirectoryError exception is raised.
+
+        Note that the root directory can't be changed while the server
+        is running, or it will raise a RuntimeError exception.
+
+        :getter: Returns the root directory.
+        :setter: Changes the root directory.
+        :type: path-like object
+        :raises NotADirectoryError: If the root directory doesn't exist or isnt' a directory.
+        :raises RuntimeError: If the value is changed while the server is running.
+        """
+
+        return self._root_directory
+
+    @root_directory.setter
+    def root_directory(self, directory_path):
+        directory_path = PosixPath(directory_path)
+
+        if not directory_path.is_absolute():
+            directory_path = PosixPath(os.getcwd(), directory_path)
+
+        if not directory_path.exists() or directory_path.is_file():
+            raise NotADirectoryError("The root directory must be an existing directory")
+
+        if self.is_running:
+            raise RuntimeError("The root directory can't be changed while the server is running.")
+
+        self._root_directory = directory_path
+
+    @property
+    def file_size_limit(self):
+        """ The file size limit.
+
+        The file size limit must be an integer specificying in bytes the
+        maximum size a file can have to be accepted and transferred. The
+        value can't zero or negative or it will raise a ValueError
+        exception.
+
+        Note that the file size limit can't be changed while the server
+        is running, or it will raise a RuntimeError exception.
+
+        :getter: Returns the file size limit in bytes.
+        :setter: Changes the file size limit in bytes.
+        :type: integer
+        :raises ValueError: If the value is less or equal to 0.
+        :raises RuntimeError: If the value is changed while the server is running.
+        """
+
+        return self._file_size_limit
+
+    @file_size_limit.setter
+    def file_size_limit(self, size):
+        if size <=0:
+            raise ValueError("The file size limit must be greater than 0")
+
+        if self.is_running:
+            raise RuntimeError("The file size limit can't be changed while the server is running.")
+
+        self._file_size_limit = size
+
+    @property
+    def chunk_size_range(self):
+        """ The chunk size range.
+
+        The chunk size range must be a tuple of two integers specifying
+        the minimum chunk size and maximum chunk size (in bytes) allowed
+        during negotiating upload and download transfers. The minimum
+        chunk size value can't zero or negative or it will raise a
+        ValueError exception.
+
+        Note that the chunk size range can't be changed while the server
+        is running, or it will raise a RuntimeError exception.
+
+        :getter: Returns the chunk size range.
+        :setter: Changes the chunk size range.
+        :type: tuple of two integer
+        :raises ValueError: If the value is less or equal to 0.
+        :raises RuntimeError: If the value is changed while the server is running.
+        """
+
+        return self._chunk_size_range
+
+    @chunk_size_range.setter
+    def chunk_size_range(self, size_range):
+        min_size, max_size = size_range
+
+        if min_size <=0:
+            raise ValueError("The minimum chunk size must be greater than 0")
+
+        if self.is_running:
+            raise RuntimeError("The chunk size range can't be changed while the server is running.")
+
+        self._chunk_size_range = size_range
 
     def initialize_sockets(self, context):
         self.router = context.socket(zmq.ROUTER)
-        self.router.bind(self.router_address)
+
+        try:
+            self.router.bind(self.router_address)
+        except zmq.error.ZMQError:
+            raise RuntimeError("can't bind the scoekt")
 
         #self.router.setsockopt(zmq.CURVE_SECRETKEY, private_key)
 
@@ -215,19 +351,39 @@ class Server:
         # put server back to IDLE state
         self.state = ServerState.IDLE
 
-    def run(self, hostname, port):
-        """ Brief description.
+    def run(self, port, address=None):
+        """ Start the main loop.
 
-        Long description.
+        This method starts the main loop after it initializes the
+        sockets which listen on a given port and optionally a
+        specific IP address. By default, it listens on all available
+        IP addresses. If it's unable to listen on a specific port
+        and/or IP address, it will raise a :py:exc:`RuntimeError`
+        exception.
 
-        :param hostname: foobar.
-        :param port: foobar.
+        It's a blocking method that won't return until the
+        :py:meth:`terminate()` method is called. Usually, the
+        :py:meth:`run()` method is called from an external thread
+        and the main thread calls the :py:meth:`terminate()` method.
+
+        :param int port:      The port to listen.
+        :param str address:   The IP address to use (all available IP addresses by default).
+        :raises RuntimeError: If the server is unable to listen on the IP address(es) and/or the port.
+        :raises RuntimeError: If the server is already running.
         """
+
+        # raise a runtime error if the server is already running
+        if self.is_running:
+            raise RuntimeError("can't start a server that is already running")
 
         # initialize sockets (router, dealer and socket)
         context = zmq.Context()
 
-        self.router_address = 'tcp://{0}:{1}'.format(hostname, str(port))
+        if address:
+            self.router_address = 'tcp://{0}:{1}'.format(address, str(port))
+        else:
+            self.router_address = 'tcp://0.0.0.0:{0}'.format(str(port))
+
         self.socket_address = 'inproc://socket'
 
         self.initialize_sockets(context)
@@ -324,11 +480,11 @@ class Server:
 
         The possible responses are.
 
-        * ACCEPTED with FILE_CREATED, if creating the the was successful
-        * REFUSED with INVALID_FILE_NAME if a file doesn't have a valid name
-        * REFUSED with FILE_NOT_FOUND if the destination directory doesn't exist
-        * REFUSED with NOT_A_DIRECTORY if the destination directory isn't an actual directory
-        * REFUSED with FILE_ALREADY_EXISTS if a file (or directory) with that name already exists
+        - ACCEPTED with FILE_CREATED, if creating the the was successful
+        - REFUSED with INVALID_FILE_NAME if a file doesn't have a valid name
+        - REFUSED with FILE_NOT_FOUND if the destination directory doesn't exist
+        - REFUSED with NOT_A_DIRECTORY if the destination directory isn't an actual directory
+        - REFUSED with FILE_ALREADY_EXISTS if a file (or directory) with that name already exists
 
         Other responses include ERROR with BAD_REQUEST if the request is
         imporperly formatted, or ERROR with UNKNOWN ERROR if any other
@@ -489,7 +645,6 @@ class Server:
 
         * ACCEPTED with CHUNK_ACCEPTED
         * ACCEPTED with TRANSFER_COMPLETED
-        * REFUSED with INVALID_FILE_NAME
 
         Long description.
         """
@@ -549,8 +704,8 @@ class Server:
     def process_upload_file_cancel_request(self, request):
         """ Process CANCEL_TRANSFER request.
 
-        The only possible response is to accepting the request. Clean
-        up server states and put it back to IDLE mode.
+        The only possible response is accepting the request. Clean up
+        server states and put it back to IDLE mode.
         """
 
         self.cancel_upload_file()
@@ -629,7 +784,7 @@ class Server:
 
             return
 
-        if chunk_size < self.min_chunk_size or chunk_size > self.max_chunk_size:
+        if chunk_size < self.chunk_size_range[0] or chunk_size > self.chunk_size_range[1]:
             response = make_incorrect_chunk_size_response()
             self.socket.send_pyobj(response)
 
@@ -902,7 +1057,7 @@ class Server:
         state and request type. If the request can't be read, a bad
         request error is sent.
 
-        In IDLE mode, the server expects one of the following request.
+        In IDLE mode, the server expects one of the following requests.
 
            * LIST_FILES
            * CREATE_FILE
@@ -948,7 +1103,8 @@ class Server:
                     self.socket.send_pyobj(response)
 
     def process_dealer(self):
-        # read dealer socket messages and send them back to the router
+        # read dealer socket messages and send them back to the
+        # router
         try:
             identity, frame, message = self.dealer.recv_multipart(zmq.DONTWAIT)
         except zmq.Again:
@@ -957,16 +1113,25 @@ class Server:
             self.router.send_multipart([identity, frame, message])
 
     def loop(self):
-
         while self.is_running:
             self.process_router()
             self.process_socket()
             self.process_dealer()
 
     def terminate(self):
-        """ Brief description.
+        """ Terminate the main loop.
 
-        Long description.
+        This method interrupt the main loop causing the server to
+        terminate. It can safely be called from a different thread
+        where the initial call to :py:meth:`run()` was made. If the
+        server wsa transferring files, operations are all interupted
+        and the client is disconnected.
+
+        :raises RuntimeError: If the server is not running.
         """
+
+        # raise a runtime error if the server is not running
+        if not self.is_running:
+            raise RuntimeError("can't terminate a server that isn't running")
 
         self.is_running = False

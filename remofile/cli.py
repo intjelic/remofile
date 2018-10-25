@@ -641,7 +641,7 @@ def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_siz
         exit(1)
 
     def loop():
-        server.run('127.0.0.1', port)
+        server.run(port)
 
     daemon = Daemon(loop, pidfile)
     daemon.start()
