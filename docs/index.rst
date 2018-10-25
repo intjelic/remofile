@@ -68,9 +68,9 @@ network on port 6768 with the token `qRkVWJcFRqi7rsNMbagaDd`.
 
 Remofile is... easy-to-use
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-It's straightfoward to interact with the remote directory; no connection
-step is required, just configure the shell environment and you are ready
-to go.
+It's straightforward to interact with the remote directory; no
+connection step is required, just configure the shell environment and
+you are ready to go.
 
 .. code-block:: shell
 
@@ -98,7 +98,7 @@ Remofile is... powerful
 ^^^^^^^^^^^^^^^^^^^^^^^
 Remofile features all common file operations indeed. On top of that, it
 also comes with bidirectional synchronization. You can synchronize
-directories the same way you woud do with `rsync`.
+directories the same way you would do with `rsync`.
 
 .. code-block:: shell
 
@@ -108,19 +108,14 @@ directories the same way you woud do with `rsync`.
     # synchronize the remote 'bar' directory with the local 'foo' directory
     remofile sync remote foo /bar
 
-In upcoming releases, Remofile will be able to resume interupted file
-transfers, and transparently read/write remote files in a Python code.
-
-.. note::
-
-    Please, consider Remofile is young and is still somewhat in
-    development. Check out the :doc:`roadmap </roadmap>` to understand
-    what is still to be implemented.
+Remofile was purposely written to leave hundreds of features that we
+usually don't need. The result is an uncomplicated software that we're
+happy to work with.
 
 Remofile is... scriptable
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-With its "connectionless" command-line interface, Remofile becomes
-highly scriptable. See the bunch of commands availabe akin to `ls`,
+With its sessionless command-line interface, Remofile becomes
+highly scriptable. See the bunch of commands available akin to `ls`,
 `touch`, `mkdir` and `rm`.
 
 .. code-block:: shell
@@ -144,7 +139,7 @@ Remofile is... embeddable
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Remofile primarily is a **Python library** to run servers and interact
 with the remote directory from the code. It's an ideal solution when you
-write client-server software that needs to tranfer files to multiple
+write client-server software that needs to transfer files to multiple
 endpoints.
 
 .. code-block:: shell
@@ -163,19 +158,24 @@ directory in the most painless fashion.
     with your own ZeroMQ socket and reduces the need to open an
     additional port.
 
-Remofile is... uncomplicated
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Remofile was purposely written  and leave hundreds of features
-that we usually don't need. The result is an uncomplicated software that
-we're happy to work with.
-
-.. warning::
-
-    To be written.
-
 Remofile is... secure
 ^^^^^^^^^^^^^^^^^^^^^
+Remofile is indeed secure. But it doesn't encrypt the communication by
+default. However, with little effort, it's easy to get it fully
+encrypted. With the following command, you can generate a pair (public
++ private) of keys.
 
-.. warning::
+.. code-block:: shell
 
-    To be written.
+    remofile generate-keys
+
+    public key: aE8{cjoe?JPDxGuX^/d*5KyP(ZuxKwIHB{EM7o&H
+    private key: D3yb)c-Nxw}DY8kAy<IOUww5@A4:G[n)8*}0S01^
+
+Now, you will keep the private key **secret** and configure the server
+with it. Then, just distribute the public keys across all clients.
+
+.. note::
+
+    Configuring the client with the public key and the server with the
+    private key is explained in the :doc:`documentation </getting-started>`.
