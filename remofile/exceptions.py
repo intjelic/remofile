@@ -6,66 +6,57 @@
 # Written by Jonathan De Wachter <dewachter.jonathan@gmail.com>, March 2018
 
 class RemofileException(Exception):
-    """ Base exception for Remofile-related errors.
+    """ Base exception for Remofile-related exceptions.
 
-    Long description.
+    Remofile-related exceptions excludes filesystem-related exceptions,
+    except for :py:exc:`SourceNotFound` and :py:exc:`DestinationNotFound`
+    which exist to simplify catching exceptions in some functions.
     """
 
 class SourceNotFound(RemofileException):
-    """ Brief description.
+    """ Source is not found.
 
-    Long description.
+    This exception is raised in upload/download/synchronize related
+    functions to catch the numberous different exceptions that a bad
+    source could raise.
+
+    It's triggered if a source file doesn't exist, or if it isn't a file
+    or a directory (according to the context).
     """
 
     pass
 
 class DestinationNotFound(RemofileException):
-    """ Brief description.
+    """ Destination is not found.
 
-    Long description.
+    This exception is raised in upload/download/synchronize related
+    functions to catch the numberous different exceptions that a bad
+    destination could raise.
+
+    It's triggered if a destination directory doesn't exist or if it's
+    not a directory.
     """
 
     pass
 
-class UnexpectedError(RemofileException):
-    """ This exception is raised because.
-
-    Blabla.
-    """
-
-    def __init__(self, message):
-        super(UnknownError, self).__init__(message)
-
-        self.message = message
-
 class BadRequestError(RemofileException):
-    """ This exception is raised when the client sends a badly
-    formatted request or when the server isn't ready to handle the
-    request because it's not in a valid state.
+    """ Bad request error occured.
 
-    It's well explained in the protocol specifications :doc:`document </protocol-specifications>`.
+    This exception is raised when the client sends a badly formatted
+    request. For instance, it can occur when the server isn't ready to
+    handle the request because it's not in a valid state.
+
+    It's well explained in the protocol specifications
+    :doc:`document </protocol-specifications>`.
     """
 
     def __init__(self):
         super(BadRequestError, self).__init__()
 
-
-class UnknownError(RemofileException):
-    """ This exception is raised when the server couldn't fulfill the
-    request because an unexpected error occured on the server side.
-
-    It's well explained in the protocol specifications :doc:`document </protocol-specifications>`.
-
-    :ivar str message: Underlying exception message that occured on the server.
-    """
-
-    def __init__(self, message):
-        super(UnknownError, self).__init__(message)
-
-        self.message = message
-
 class CorruptedResponse(RemofileException):
-    """ This exception is raised when the client is unable to process
+    """ Corrupted response was received.
+
+    This exception is raised when the client is unable to process
     the response returned by the server. The client stricly implements
     the protocol and if a response isn't expected or doesn't have the
     correct format, the response is said corrupted.
@@ -92,13 +83,27 @@ class CorruptedResponse(RemofileException):
         self.message = message
         self.error = error
 
+class UnexpectedError(RemofileException):
+    """ Unexpected error occured.
+
+    This exception is raised whenever the server couldn't fulfill the
+    request because an unexpected error occured on the server side.
+
+    It's well explained in the protocol specifications :doc:`document </protocol-specifications>`.
+
+    :ivar str message: Underlying exception message that occured on the server.
+    """
+
+    def __init__(self, message):
+        super(UnknownError, self).__init__(message)
+
+        self.message = message
+
 class FileNameError(OSError):
     """ File name is invalid.
 
-    This exception is raised when the file name is incorrect as stated by the
-    Remofile protcol.
-
-    Foobar.
+    This exception is raised when the file name is incorrect as stated
+    by the Remofile protcol.
     """
 
     pass

@@ -107,40 +107,7 @@ synchronization features in both directions which is done with
 
 Handling exceptions
 -------------------
-The set of exceptions implemented by Remofile deserves some explanations. But
-more globally, you want to know what to expect when dealing with exceptions.
-
-Remofile uses the **built-in** exceptions for the basic file operations errors
-that could occur. That includes :py:exc:`ValueError` when unexpected values are
-passed to functions (often used when paths aren't valid),
-:py:exc:`FileExistsError` and its counterpart :py:exc:`FileNotFoundError`,
-:py:exc:`IsADirectoryError` and its counterpart :py:exc:`NotADirectoryError`,
-and additionally, :py:exc:`FileNameError` which actually is not a built-in
-exception but should be seen as one. And last but not least, the
-:py:exc:`TimeoutError` built-in exception that any quality code should use.
-
-Those were the common exceptions you will need to deal with for pretty much all
-file operations but there is more to that. There are :py:exc:`SourceNotFound`
-and :py:exc:`DestinationNotFound` which are used by the upload, download and
-synchronization related methods, when either the source or destination is
-invalid (regardless the actual reason). Note that a source directory can either
-be a file or directory but a destination will always be a directory.
-
-And then comes another set of mandatory exceptions to handle, the network
-related ones which includes :py:exc:`UnpexectedError`, :py:exc:`UnknownError`
-and :py:exc:`BadRequestError`.
-
-:py:exc:`BadRequestError` should never occur with an updated client as it
-implements the protocol. Those are raised when it's known misuse of the
-protocol and the server detected it.
-
-:py:exc:`UnexpectedError` exceptions are likely to occur when the assumptions
-
-:py:exc:`UnknownError` are all other exceptions that might occurs. For instance,
-an error occurs on the server side and is unable For instance, if
-the server response with unknown data. Or
-
-:py:exc:`CorruptedResponse` is another exception blabla.
+This section isn't written yet.
 
 .. autoexception:: RemofileException
 
