@@ -19,17 +19,17 @@ through SSH for security. But those are ancient, sophisticated, and
 overly complicated solutions in most situations. For instance, if you
 are creating a client-server software and need to transfer files
 between multiple endpoints, how do you use FTP (and its hundreds of
-tools and libraries out there) in clean way and  without
-over-complicating the architecture of your software. No surprise that
-most application prefer re-implementing basic file transfer operations
-on top of their own protocol. [#0]_
+tools and libraries out there) in without making the code of your
+software ugly and over-complicated. No surprise that
+most application prefer roll their own mini-solution by re-implementing
+basic file transfer operations on top of other protocols. [#0]_ [#3]_
 
 A modern and lightweight alternative to FTP would be a better fit  when
 simply uploading and downloading a couple of files, or synchronizing
 directories is needed. Doing these essential file operations should be
 effortless in 2018, either at a command-line level or programming level.
 This is why Remofile "reinvents the wheel", with a simpler
-implementation and a much nicer interface for both side client and
+implementation and a much nicer interface for both sides, client and
 server.
 
 A simpler concept
@@ -38,7 +38,7 @@ Remofile is not much different from FTP in terms of concept; it jails
 a given directory on the server side and exposes it to the client. But
 unlike FTP, it does it with few differences.
 
-- There is no multi-user connection
+- There is no concurrent connections
 - There is no complex authentication system
 - There is no changing file owners and permissions
 - It's done with less performance and optimizations concerns
@@ -73,7 +73,7 @@ File ownership, permissions and timestamp
 -----------------------------------------
 This simpler concept jostles a bit with the traditions when transferring
 files and it has to do with file ownership, permissions and timestamps.
-In fact, those "details" who aren't always important are needed. But
+In fact, those "details", who aren't always important, are needed. But
 since Remofile isn't using the server's underlying OS system users to
 authenticate clients (unlike FTP), what happens when a file is
 transferred, who owns it, what permissions it gets, and how about the
@@ -88,7 +88,7 @@ assume it has access to all files present in the directory it's serving.
 
 As for file permissions, a file always is readable and writable by the
 user, but not executable (unless it's a directory of course). The group
-and public permissions are defined by the configure of the client or
+and public permissions are defined by the configuration of the client or
 the server.
 
 Not tuned for performance
@@ -138,4 +138,5 @@ features and improvements.
 
 .. [#0] Gitlab Runner, Buildbot, Jenkins and most CI services have custom code to transfer source code back and forth.
 .. [#1] Usually, when it comes to transferring files, one would use a lower-level solution that directly deals with streams of bytes.
-.. [#2] See its synchronization features and its ability to resume interrupted file transfers.
+.. [#2] See its synchronization features and its ability to resume interrupted file transfers.]
+.. [#3] Joe Armstrong, creator of Erlang, complains about FTP and write his own quick solution: http://armstrongonsoftware.blogspot.com/2006/09/why-i-often-implement-things-from.html

@@ -46,7 +46,8 @@ transfer files tools.
     See this :doc:`document </design-decisions>` for more details.
 
 It's also properly documented and heavily tested. Check out the
-:doc:`user guide </getting-started>` to get you started with using Remofile.
+:doc:`user guide </getting-started>` to get you started with using
+Remofile.
 
 Remofile is... quick
 ^^^^^^^^^^^^^^^^^^^^

@@ -29,20 +29,10 @@ class Client:
     timeout.
 
     All native file operations are implemented such as listing files,
-    creating files (and directories), upload/download files and deleting
-    files. Exceptions are raised whenever an error occurs and the
-    operation couldn't be completed.
-
-    List of native file operations.
-
-        * :py:meth:`list_files`
-        * :py:meth:`create_file`
-        * :py:meth:`make_directory`
-        * :py:meth:`upload_file`
-        * :py:meth:`upload_directory`
-        * :py:meth:`download_file`
-        * :py:meth:`download_directory`
-        * :py:meth:`delete_file`
+    creating files and directories, upload/download files and deleting
+    files. Exceptions are raised whenever errors occur or if the file
+    operation couldn't be successfully completed. Also note that
+    directories and symbolic links are also reffered as 'file'.
 
     For more complex file operations such as synchronizing directories
     or upload/download trees of files, while handling file conflicts and
@@ -56,19 +46,28 @@ class Client:
         The client instance is constructed from the hostname (which can
         either be "localhost" or any valid IP), the port and the token.
 
+        The token should be generated with the :py:func:`generate_token()`
+        to ensure validity of its value, or a :py:exc:`ValueError`
+        exception is raised.
+
         :param str hostname: The server IP address (can be "localhost").
         :param int port:     The server port.
         :param str token:    The token to use for authentication.
+        :raises ValueError:  If the token isn't valid.
         """
-
-        self.token = bytes(token, 'utf-8')
 
         context = zmq.Context()
 
         self.socket_address = 'tcp://{0}:{1}'.format(hostname, str(port))
 
         self.socket = context.socket(zmq.REQ)
-        self.socket.setsockopt(zmq.IDENTITY, self.token)
+
+        try:
+            self.token = bytes(token, 'utf-8')
+            self.socket.setsockopt(zmq.IDENTITY, self.token)
+        except Exception:
+            raise ValueError("the token is not valid")
+
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.connect(self.socket_address)
 

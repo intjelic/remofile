@@ -37,7 +37,7 @@ implementation of this protocol.
 
 Request and response pattern
 ----------------------------
-The protocol is entirely based on **ZeroMQ** using one pair of socket in
+The protocol is entirely based on **ZeroMQ** using a single pair of socket in
 the **REQ-REP** mode. Documenting and understanding becomes easy because
 the client and the server are locked in a two steps communication
 pattern; the client sends one **request** and the server sends back one
@@ -121,7 +121,7 @@ The difference between a **REFUSED** and **ERROR** response lies in the
 Regardless of the current business, the client is expected to
 communicate **flawlessly** with the server in a known language and the
 server is expected to deal with all possible errors that may happen
-during the fulfillment of the rquest... and reply with an ACCEPTED or
+during the fulfillment of the request... and reply with an ACCEPTED or
 **REFUSED** response.
 
 If the client sends a bad request, this is an **ERROR** because it
@@ -168,7 +168,7 @@ current transferring state. It's a non-lasting operation that should be
 canceled on the client side with a timeout value if ever the server
 takes long to reply.
 
-The **LIST_FILES** request is contructed with the path to the directory
+The **LIST_FILES** request is constructed with the path to the directory
 to list files for.
 
 Request example:
@@ -399,7 +399,7 @@ SEND_CHUNK
 ACCEPTED, CHUNK_ACCEPTED
 ACCEPTED, TRANSFER_COMPLETED
 
-In case the client explictely cancel the trasnfer, it sends
+In case the client explicitly cancel the transfer, it sends
 CANCEL_TRANSFER
 and server replies with,
 ACCEPTED, TRANSFER_CANCELLED
@@ -493,12 +493,12 @@ Response example.
 
 Long description.
 
-.. notes::
+.. note::
 
-    The dowloading state is akin to the uploading state.
+    The downloading state is akin to the uploading state.
 
     The different with downloading is, instead of sending the file size
-    informtion, it's received from the server.
+    information, it's received from the server.
 
     directory = '/my-software'
     filename = 'Win7.iso'
@@ -510,7 +510,6 @@ Long description.
     Long description.
 
     response = (Response.ACCEPTED, Reason.TRANSFER_ACCEPTED, chunk_size)
-
 
 Delete file request
 -------------------

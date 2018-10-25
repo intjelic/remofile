@@ -24,9 +24,9 @@ MISCONFIGURED_ENVIRONMENT_MESSAGE = """The environment must be \
 configured with the following variables in order for Remofile to \
 locate and connect to the server.
 
-REMOFILE_HOSTNAME - Foobar.
-REMOFILE_PORT     - The port to connect to. By default it uses 6768.
-REMOFILE_TOKEN    - FOOBAR
+REMOFILE_HOSTNAME - The ip address to use (can be 'localhost' or a domain name)
+REMOFILE_PORT     - The port to use (optional, use 6768 by default)
+REMOFILE_TOKEN    - The token to use during the authentication process
 
 Configure your environment and try again.
 """
@@ -53,7 +53,7 @@ The root directory is the directory that is served across the network, \
 therefore it must exist and be accessible.
 """
 
-INCORRECT_VALUE_ERROR_MESSAGE = """One of the following values is \
+INCORRECT_CONFIG_VALUE_MESSAGE = """One of the following values is \
 incorrect.
 
 * file size limit
@@ -71,6 +71,10 @@ UPLOAD_RECURSIVE_FLAG_DESCRIPTION   = "Upload directories and their content recu
 DOWNLOAD_RECURSIVE_FLAG_DESCRIPTION = "Download directories and their content recursively."
 PROGRESS_FLAG_DESCRIPTION           = "Display a progress indicator."
 TIMEOUT_FLAG_DESCRIPTION            = "Adjust the timeout value in milliseconds."
+FILE_SIZE_LIMIT_FLAG_DESCRIPTION    = "Foobar"
+MIN_CHUNK_SIZE_FLAG_DESCRIPTION     = "Foobar"
+MAX_CHUNK_SIZE_FLAG_DESCRIPTION     = "Foobar"
+PIDFILE_FLAG_DESCRIPTION            = "Foobar"
 
 def get_info_from_environment():
     hostname = os.environ.get("REMOFILE_HOSTNAME")
@@ -547,13 +551,13 @@ def download_files(source, destination, recursive, progress, timeout):
             else:
                 print("Skip downloading folder '{0}'; the recursive flag must be set.".format(path))
 
-    del client # debug code, for some reason the socket wown't be disconnected
+    del client # debug code, for some reason the socket won't be disconnected
 
 @cli.command('remove')
 @click.argument('name')
 @click.argument('directory', default='/')
-@click.option('--timeout', '-t', type=click.INT)
-def remove_file(name, directory, timeout):
+@click.option('--timeout', '-t', type=click.INT, help=TIMEOUT_FLAG_DESCRIPTION)
+def remove_files(name, directory, timeout):
     """ Remove files in the remote directory.
 
     This is a client-related command that removes a file or a folder
@@ -572,9 +576,9 @@ def remove_file(name, directory, timeout):
 @click.argument('directory')
 @click.argument('port', default=6768)
 @click.argument('token', required=False)
-@click.option('--file-size-limit', default=FILE_SIZE_LIMIT,    type=click.INT)
-@click.option('--min-chunk-size',  default=MINIMUM_CHUNK_SIZE, type=click.INT)
-@click.option('--max-chunk-size',  default=MAXIMUM_CHUNK_SIZE, type=click.INT)
+@click.option('--file-size-limit', default=FILE_SIZE_LIMIT,    type=click.INT, help=FILE_SIZE_LIMIT_FLAG_DESCRIPTION)
+@click.option('--min-chunk-size',  default=MINIMUM_CHUNK_SIZE, type=click.INT, help=MIN_CHUNK_SIZE_FLAG_DESCRIPTION)
+@click.option('--max-chunk-size',  default=MAXIMUM_CHUNK_SIZE, type=click.INT, help=MAX_CHUNK_SIZE_FLAG_DESCRIPTION)
 def run_server(directory, port, token, file_size_limit, min_chunk_size, max_chunk_size):
     """ Start a (non-daemonized) server.
 
@@ -597,24 +601,26 @@ def run_server(directory, port, token, file_size_limit, min_chunk_size, max_chun
         display_generated_token(token)
 
     try:
-        server = Server(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
+        server = Server(directory, token,
+            file_size_limit=file_size_limit,
+            chunk_size_range=(min_chunk_size, max_chunk_size))
     except NotADirectoryError:
         print(INVALID_ROOT_DIRECTORY_MESSAGE)
         exit(1)
     except ValueError:
-        print(INCORRECT_VALUE_ERROR_MESSAGE)
+        print(INCORRECT_CONFIG_VALUE_MESSAGE)
         exit(1)
 
-    server.run('127.0.0.1', port)
+    server.run(port)
 
 @cli.command('start')
 @click.argument('directory')
 @click.argument('port', default=6768)
 @click.argument('token', required=False)
-@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'), help="foobar barfooo")
-@click.option('--file-size-limit', default=FILE_SIZE_LIMIT,    type=click.INT)
-@click.option('--min-chunk-size',  default=MINIMUM_CHUNK_SIZE, type=click.INT)
-@click.option('--max-chunk-size',  default=MAXIMUM_CHUNK_SIZE, type=click.INT)
+@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'),    help=PIDFILE_FLAG_DESCRIPTION)
+@click.option('--file-size-limit', default=FILE_SIZE_LIMIT,    type=click.INT, help=FILE_SIZE_LIMIT_FLAG_DESCRIPTION)
+@click.option('--min-chunk-size',  default=MINIMUM_CHUNK_SIZE, type=click.INT, help=MIN_CHUNK_SIZE_FLAG_DESCRIPTION)
+@click.option('--max-chunk-size',  default=MAXIMUM_CHUNK_SIZE, type=click.INT, help=MAX_CHUNK_SIZE_FLAG_DESCRIPTION)
 def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_size, max_chunk_size):
     """ Start a daemonized server.
 
@@ -637,7 +643,7 @@ def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_siz
         print(INVALID_ROOT_DIRECTORY_MESSAGE)
         exit(1)
     except ValueError:
-        print(INCORRECT_VALUE_ERROR_MESSAGE)
+        print(INCORRECT_CONFIG_VALUE_MESSAGE)
         exit(1)
 
     def loop():
@@ -647,7 +653,7 @@ def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_siz
     daemon.start()
 
 @cli.command('stop')
-@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'))
+@click.option('--pidfile', default=os.path.join(os.getcwd(), 'daemon.pid'), help=PIDFILE_FLAG_DESCRIPTION)
 def stop_server(pidfile):
     """ Stop a daemonized server.
 
@@ -698,7 +704,7 @@ cli.add_command(create_file)
 cli.add_command(make_directory)
 cli.add_command(upload_files)
 cli.add_command(download_files)
-cli.add_command(remove_file)
+cli.add_command(remove_files)
 
 cli.add_command(run_server)
 cli.add_command(start_server)
