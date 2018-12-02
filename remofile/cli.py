@@ -638,7 +638,7 @@ def start_server(directory, port, token, pidfile, file_size_limit, min_chunk_siz
         display_generated_token(token)
 
     try:
-        server = Server(directory, token, file_size_limit, min_chunk_size, max_chunk_size)
+        server = Server(directory, token, file_size_limit=file_size_limit, chunk_size_range=(min_chunk_size, max_chunk_size))
     except NotADirectoryError:
         print(INVALID_ROOT_DIRECTORY_MESSAGE)
         exit(1)
