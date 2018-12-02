@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='remofile',
-    version='1.0.0.dev5',
+    version='1.0.0.dev6',
     packages=[
         'remofile'
     ],
